@@ -2,6 +2,7 @@ import { createId, createInitialShowState, parseImportedShowState } from './defa
 import type {
   ClientRole,
   MusicControlPayload,
+  MusicTrackSummary,
   ScoreFlash,
   ShowState,
   SoundCue,
@@ -57,13 +58,16 @@ export function savePersistedState(state: ShowState): void {
 
 export interface SyncClientOptions {
   role: ClientRole;
+  clientId?: string;
   getAudioUnlocked?: () => boolean;
   onStateReceived: (state: ShowState, fromRole: ClientRole) => void;
   onStateRequested: () => void;
   onScoreFlash: (flash: ScoreFlash) => void;
   onSoundCue: (cue: SoundCue) => void;
   onMusicTrackReceived?: (track: IncomingMusicTrack) => void;
+  onMusicCatalogReceived?: (tracks: MusicTrackSummary[], control: MusicControlPayload) => void;
   onMusicControlReceived?: (control: MusicControlPayload) => void;
+  onMusicRemoveReceived?: (trackId: string) => void;
   onMusicRequested?: () => void;
   onPeersChanged: (peers: Record<string, PeerInfo>) => void;
 }
@@ -81,7 +85,7 @@ export class ShowSyncClient {
   private lastReceivedStamp = -1;
 
   constructor(options: SyncClientOptions) {
-    this.clientId = createId(options.role);
+    this.clientId = options.clientId ?? createId(options.role);
     this.role = options.role;
     this.options = options;
 
@@ -204,8 +208,14 @@ export class ShowSyncClient {
           control: msg.control,
         });
         break;
+      case 'MUSIC_CATALOG':
+        this.options.onMusicCatalogReceived?.(msg.tracks, msg.control);
+        break;
       case 'MUSIC_CONTROL':
         this.options.onMusicControlReceived?.(msg.control);
+        break;
+      case 'MUSIC_REMOVE':
+        this.options.onMusicRemoveReceived?.(msg.trackId);
         break;
       case 'MUSIC_REQUEST':
         this.options.onMusicRequested?.();
@@ -314,11 +324,28 @@ export class ShowSyncClient {
     }
   }
 
+  broadcastMusicCatalog(tracks: MusicTrackSummary[], control: MusicControlPayload) {
+    this.sendMessage({
+      type: 'MUSIC_CATALOG',
+      senderId: this.clientId,
+      tracks,
+      control,
+    });
+  }
+
   broadcastMusicControl(control: MusicControlPayload) {
     this.sendMessage({
       type: 'MUSIC_CONTROL',
       senderId: this.clientId,
       control,
+    });
+  }
+
+  broadcastMusicRemove(trackId: string) {
+    this.sendMessage({
+      type: 'MUSIC_REMOVE',
+      senderId: this.clientId,
+      trackId,
     });
   }
 

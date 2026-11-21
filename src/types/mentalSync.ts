@@ -57,7 +57,7 @@ export function normalizeMentalSyncState(
         .filter((p): p is MentalSyncPrompt => Boolean(p && typeof p === 'object' && typeof p.text === 'string'))
         .map((p, i) => ({
           id: typeof p.id === 'string' && p.id ? p.id : `ms_${i + 1}`,
-          type: p.type === 'fill' ? 'fill' : 'who',
+          type: 'who' as MentalSyncPromptType,
           text: p.text,
         }))
     : MENTAL_SYNC_PROMPT_BANK.map((p) => ({ ...p }));

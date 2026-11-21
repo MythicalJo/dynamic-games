@@ -32,12 +32,15 @@ function formatClock(ms: number): string {
 
 const CATEGORIES: ('Todas' | FastMoneyCategory)[] = [
   'Todas',
+  'Fáciles',
   'Comida',
+  'Cultura Popular',
   'Hábitos',
   'Anécdotas',
   'Gustos',
   'Personalidad',
   'Hipotéticas',
+  'Amistad',
 ];
 
 export function FastMoneyHost({ mode }: GameHostProps) {
@@ -411,10 +414,10 @@ export function FastMoneyHost({ mode }: GameHostProps) {
           })}
         </div>
 
-        {/* BIG TIMER (Phases 1 & 2 only) */}
+        {/* BIG TIMER (Phases 1 & 2 only — thumb-friendly on mobile) */}
         {(stage === 1 || stage === 2) && (
           <div
-            className={`mt-5 flex flex-wrap items-center justify-between gap-4 rounded-2xl border p-5 transition-colors ${
+            className={`mt-5 flex flex-col gap-4 rounded-2xl border p-4 transition-colors sm:flex-row sm:items-center sm:justify-between sm:p-5 ${
               remainingMs === 0 || isCritical
                 ? 'border-err bg-err-soft'
                 : isWarn
@@ -422,7 +425,7 @@ export function FastMoneyHost({ mode }: GameHostProps) {
                   : 'border-line bg-canvas'
             }`}
           >
-            <div>
+            <div className="text-center sm:text-left">
               <div className="font-mono text-[11px] font-bold tracking-wider text-accent uppercase">
                 Fase {stage} de 4 · {currentStageInfo.detail}
               </div>
@@ -440,14 +443,14 @@ export function FastMoneyHost({ mode }: GameHostProps) {
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
               {fmState.timer.isRunning ? (
                 <button
                   type="button"
                   onClick={pauseTimer}
-                  className="inline-flex items-center gap-2 rounded-xl bg-warn px-5 py-3 text-sm font-bold text-warn-fg transition hover:opacity-90"
+                  className="inline-flex min-h-[54px] w-full items-center justify-center gap-2 rounded-xl bg-warn px-6 py-3 text-base font-extrabold text-warn-fg transition hover:opacity-90 active:scale-[0.98] sm:min-h-[48px] sm:w-auto sm:text-sm"
                 >
-                  <Pause className="h-4 w-4 fill-current" />
+                  <Pause className="h-5 w-5 fill-current sm:h-4 sm:w-4" />
                   {t.common.pause}
                 </button>
               ) : (
@@ -457,30 +460,32 @@ export function FastMoneyHost({ mode }: GameHostProps) {
                     startTimer();
                     focusSlotInput(activeRoundState.activeSlotIndex);
                   }}
-                  className="inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-3 text-sm font-bold text-accent-fg transition hover:opacity-90"
+                  className="inline-flex min-h-[54px] w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3 text-base font-extrabold text-accent-fg transition hover:opacity-90 active:scale-[0.98] sm:min-h-[48px] sm:w-auto sm:text-sm"
                 >
-                  <Play className="h-4 w-4 fill-current" />
+                  <Play className="h-5 w-5 fill-current sm:h-4 sm:w-4" />
                   {t.fastMoney.live.start30s}
                 </button>
               )}
 
-              <button
-                type="button"
-                onClick={addFiveSeconds}
-                className="inline-flex items-center gap-1 rounded-xl border border-line bg-surface px-3.5 py-3 font-mono text-xs font-bold text-ink hover:border-line-strong"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                5s
-              </button>
+              <div className="grid grid-cols-2 gap-2 sm:flex">
+                <button
+                  type="button"
+                  onClick={addFiveSeconds}
+                  className="inline-flex min-h-[46px] items-center justify-center gap-1 rounded-xl border border-line bg-surface px-4 py-3 font-mono text-sm font-bold text-ink hover:border-line-strong active:scale-95 sm:text-xs"
+                >
+                  <Plus className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                  5s
+                </button>
 
-              <button
-                type="button"
-                onClick={resetTimer}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-surface px-3.5 py-3 text-xs font-semibold text-ink-muted hover:text-ink"
-              >
-                <RotateCcw className="h-3.5 w-3.5" />
-                {t.common.reset}
-              </button>
+                <button
+                  type="button"
+                  onClick={resetTimer}
+                  className="inline-flex min-h-[46px] items-center justify-center gap-1.5 rounded-xl border border-line bg-surface px-4 py-3 text-sm font-semibold text-ink-muted hover:text-ink active:scale-95 sm:text-xs"
+                >
+                  <RotateCcw className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                  {t.common.reset}
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -560,7 +565,7 @@ export function FastMoneyHost({ mode }: GameHostProps) {
                         }
                       }}
                       placeholder={t.fastMoney.live.typeGuessPlaceholder(guessingPlayerName)}
-                      className="flex-1 rounded-xl border border-line bg-canvas px-3.5 py-2.5 text-sm font-semibold text-ink outline-none focus:border-accent"
+                      className="min-h-[48px] flex-1 rounded-xl border border-line bg-canvas px-3.5 py-2.5 text-base font-semibold text-ink outline-none focus:border-accent sm:min-h-0 sm:text-sm"
                     />
 
                     <button
@@ -570,9 +575,9 @@ export function FastMoneyHost({ mode }: GameHostProps) {
                         const nextIdx = passSlot(idx);
                         focusSlotInput(nextIdx);
                       }}
-                      className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-warn/45 bg-warn-soft px-3.5 py-2.5 font-mono text-xs font-bold text-warn transition hover:opacity-90 active:scale-95"
+                      className="inline-flex min-h-[48px] shrink-0 items-center gap-1.5 rounded-xl border border-warn/45 bg-warn-soft px-4 py-2.5 font-mono text-xs font-bold text-warn transition hover:opacity-90 active:scale-95 sm:min-h-0 sm:px-3.5"
                     >
-                      <FastForward className="h-3.5 w-3.5" />
+                      <FastForward className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
                       {t.fastMoney.live.passBtn}
                     </button>
                   </div>
@@ -620,19 +625,19 @@ export function FastMoneyHost({ mode }: GameHostProps) {
               <button
                 type="button"
                 onClick={() => setStage(2)}
-                className="inline-flex items-center gap-2 rounded-xl bg-ink px-5 py-2.5 text-xs font-bold text-canvas transition hover:opacity-90"
+                className="inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-ink px-5 py-2.5 text-sm font-bold text-canvas transition hover:opacity-90 active:scale-[0.98] sm:min-h-0 sm:w-auto sm:text-xs"
               >
                 <span>Siguiente: Ronda 2 ({selectedTeam.playerB} adivina)</span>
-                <ArrowRight className="h-3.5 w-3.5" />
+                <ArrowRight className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
               </button>
             ) : (
               <button
                 type="button"
                 onClick={() => setStage(3)}
-                className="inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-xs font-bold text-accent-fg transition hover:opacity-90"
+                className="inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-bold text-accent-fg transition hover:opacity-90 active:scale-[0.98] sm:min-h-0 sm:w-auto sm:text-xs"
               >
                 <span>Siguiente: Revelación 1 ({selectedTeam.playerA} sobre {selectedTeam.playerB})</span>
-                <ArrowRight className="h-3.5 w-3.5" />
+                <ArrowRight className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
               </button>
             )}
           </div>
@@ -700,13 +705,13 @@ export function FastMoneyHost({ mode }: GameHostProps) {
                       <button
                         type="button"
                         onClick={() => toggleRevealGuess(idx)}
-                        className={`mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition ${
+                        className={`mt-3 flex min-h-[46px] w-full items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-bold transition active:scale-[0.98] sm:mt-2.5 sm:min-h-[36px] sm:rounded-lg sm:text-xs ${
                           slot.guessRevealed
                             ? 'border-ink bg-ink text-canvas'
                             : 'border-line bg-canvas text-ink hover:border-line-strong'
                         }`}
                       >
-                        {slot.guessRevealed ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                        {slot.guessRevealed ? <Eye className="h-4 w-4 sm:h-3.5 sm:w-3.5" /> : <EyeOff className="h-4 w-4 sm:h-3.5 sm:w-3.5" />}
                         {slot.guessRevealed
                           ? t.fastMoney.reveal.hideGuessBtn
                           : t.fastMoney.reveal.revealGuessBtn}
@@ -729,13 +734,13 @@ export function FastMoneyHost({ mode }: GameHostProps) {
                       <button
                         type="button"
                         onClick={() => toggleRevealActual(idx)}
-                        className={`mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition ${
+                        className={`mt-3 flex min-h-[46px] w-full items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-bold transition active:scale-[0.98] sm:mt-2.5 sm:min-h-[36px] sm:rounded-lg sm:text-xs ${
                           slot.actualRevealed
                             ? 'border-accent bg-accent text-accent-fg'
                             : 'border-line bg-canvas text-ink hover:border-line-strong'
                         }`}
                       >
-                        {slot.actualRevealed ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                        {slot.actualRevealed ? <Eye className="h-4 w-4 sm:h-3.5 sm:w-3.5" /> : <EyeOff className="h-4 w-4 sm:h-3.5 sm:w-3.5" />}
                         {slot.actualRevealed
                           ? t.fastMoney.reveal.hideActualBtn
                           : t.fastMoney.reveal.revealActualBtn}
@@ -746,18 +751,18 @@ export function FastMoneyHost({ mode }: GameHostProps) {
                       <div className="text-[11px] font-semibold text-ink-subtle">
                         {t.fastMoney.reveal.awardRowScore}
                       </div>
-                      <div className="mt-2 grid grid-cols-3 gap-1.5">
+                      <div className="mt-2.5 grid grid-cols-3 gap-2 sm:mt-2 sm:gap-1.5">
                         <button
                           type="button"
                           onClick={() => scoreSlot(idx, 'exact')}
-                          className={`flex flex-col items-center rounded-lg border py-2 transition active:scale-95 ${
+                          className={`flex min-h-[56px] flex-col items-center justify-center rounded-xl border py-2 transition active:scale-95 sm:min-h-[48px] sm:rounded-lg ${
                             slot.rating === 'exact'
                               ? 'border-ok bg-ok text-ok-fg'
                               : 'border-line bg-canvas text-ink hover:border-ok'
                           }`}
                         >
-                          <span className="font-mono text-xs font-extrabold">+20</span>
-                          <span className="text-[10px] font-semibold">
+                          <span className="font-mono text-sm font-extrabold sm:text-xs">+20</span>
+                          <span className="text-[11px] font-semibold sm:text-[10px]">
                             {t.fastMoney.reveal.exactLabel}
                           </span>
                         </button>
@@ -765,14 +770,14 @@ export function FastMoneyHost({ mode }: GameHostProps) {
                         <button
                           type="button"
                           onClick={() => scoreSlot(idx, 'close')}
-                          className={`flex flex-col items-center rounded-lg border py-2 transition active:scale-95 ${
+                          className={`flex min-h-[56px] flex-col items-center justify-center rounded-xl border py-2 transition active:scale-95 sm:min-h-[48px] sm:rounded-lg ${
                             slot.rating === 'close'
                               ? 'border-accent bg-accent text-accent-fg'
                               : 'border-line bg-canvas text-ink hover:border-accent'
                           }`}
                         >
-                          <span className="font-mono text-xs font-extrabold">+10</span>
-                          <span className="text-[10px] font-semibold">
+                          <span className="font-mono text-sm font-extrabold sm:text-xs">+10</span>
+                          <span className="text-[11px] font-semibold sm:text-[10px]">
                             {t.fastMoney.reveal.closeLabel}
                           </span>
                         </button>
@@ -780,16 +785,16 @@ export function FastMoneyHost({ mode }: GameHostProps) {
                         <button
                           type="button"
                           onClick={() => scoreSlot(idx, 'miss')}
-                          className={`flex flex-col items-center rounded-lg border py-2 transition active:scale-95 ${
+                          className={`flex min-h-[56px] flex-col items-center justify-center rounded-xl border py-2 transition active:scale-95 sm:min-h-[48px] sm:rounded-lg ${
                             slot.rating === 'miss'
                               ? 'border-err bg-err text-err-fg'
                               : 'border-line bg-canvas text-ink-muted hover:border-err hover:text-err'
                           }`}
                         >
-                          <span className="flex items-center font-mono text-xs font-extrabold">
-                            <X className="h-3 w-3" />0
+                          <span className="flex items-center font-mono text-sm font-extrabold sm:text-xs">
+                            <X className="h-3.5 w-3.5 sm:h-3 sm:w-3" />0
                           </span>
-                          <span className="text-[10px] font-semibold">
+                          <span className="text-[11px] font-semibold sm:text-[10px]">
                             {t.fastMoney.reveal.missLabel}
                           </span>
                         </button>
@@ -847,7 +852,7 @@ export function FastMoneyHost({ mode }: GameHostProps) {
                 <button
                   type="button"
                   onClick={() => setStage(4)}
-                  className="inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-xs font-bold text-accent-fg transition hover:opacity-90"
+                  className="inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-bold text-accent-fg transition hover:opacity-90 active:scale-[0.98] sm:min-h-0 sm:w-auto sm:text-xs"
                 >
                   <Check className="h-4 w-4" />
                   <span>

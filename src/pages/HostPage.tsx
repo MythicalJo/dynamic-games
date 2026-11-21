@@ -15,6 +15,7 @@ import { GAME_MODULES, getActiveGameModule } from '../modules/registry';
 import { TeamsManagerPanel } from '../components/host/TeamsManagerPanel';
 import { EventDataPanel } from '../components/host/EventDataPanel';
 import { QuickScoresRail } from '../components/host/QuickScoresRail';
+import { RemoteConnectBar } from '../components/host/RemoteConnectBar';
 import { SoundboardBar } from '../components/host/SoundboardBar';
 import { useHostShortcuts } from '../hooks/useHostShortcuts';
 import { getDisplayWindowUrl } from '../lib/i18n';
@@ -61,9 +62,9 @@ function HostWorkspace() {
       {/* SINGLE MINIMALIST TOP HEADER BAR                                  */}
       {/* ================================================================= */}
       <header className="sticky top-0 z-30 border-b border-line bg-canvas/95 backdrop-blur-md">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2.5 px-3 py-2.5 sm:px-6 sm:py-3">
           {/* Left: Brand + Audience Screen Launcher */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <Link to="/" className="flex items-center gap-2 font-bold tracking-tight text-ink">
               <span className="h-2.5 w-2.5 rounded-full bg-accent" />
               <span className="text-sm uppercase">{state.eventMeta.title || 'PUNTOS RÁPIDOS'}</span>
@@ -74,7 +75,7 @@ function HostWorkspace() {
             <button
               type="button"
               onClick={handleLaunchDisplay}
-              className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1 text-xs font-semibold text-ink transition hover:border-line-strong hover:bg-surface-2"
+              className="hidden items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1 text-xs font-semibold text-ink transition hover:border-line-strong hover:bg-surface-2 sm:inline-flex"
             >
               <span
                 className={`h-2 w-2 rounded-full ${
@@ -91,11 +92,11 @@ function HostWorkspace() {
           </div>
 
           {/* Center: Clean 2-Mode Top Tabs — "En Vivo" vs "Preparación / Equipos" */}
-          <nav className="flex items-center rounded-full border border-line bg-surface p-1">
+          <nav className="order-3 flex w-full items-center rounded-full border border-line bg-surface p-1 sm:order-2 sm:w-auto">
             <button
               type="button"
               onClick={() => setTopMode('live')}
-              className={`inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-bold transition ${
+              className={`inline-flex min-h-[38px] flex-1 items-center justify-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-bold transition sm:min-h-0 sm:flex-none ${
                 topMode === 'live'
                   ? 'bg-ink text-canvas'
                   : 'text-ink-muted hover:text-ink'
@@ -107,7 +108,7 @@ function HostWorkspace() {
             <button
               type="button"
               onClick={() => setTopMode('setup')}
-              className={`inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-bold transition ${
+              className={`inline-flex min-h-[38px] flex-1 items-center justify-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-bold transition sm:min-h-0 sm:flex-none ${
                 topMode === 'setup'
                   ? 'bg-ink text-canvas'
                   : 'text-ink-muted hover:text-ink'
@@ -120,7 +121,7 @@ function HostWorkspace() {
 
           {/* Right: 4-Palette Real-Time Theme Switcher (Blanco / Sepia / Negro / Pizarra) */}
           <div
-            className="flex items-center gap-0.5 rounded-full border border-line bg-surface p-1"
+            className="order-2 flex items-center gap-0.5 rounded-full border border-line bg-surface p-1 sm:order-3"
             title="Tema visual (sincronizado en tiempo real con la pantalla del público)"
           >
             {THEMES.map((item) => {
@@ -130,7 +131,7 @@ function HostWorkspace() {
                   key={item.id}
                   type="button"
                   onClick={() => setTheme(item.id)}
-                  className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                  className={`flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-semibold transition sm:py-1 ${
                     active
                       ? 'bg-canvas text-ink shadow-xs ring-1 ring-line-strong'
                       : 'text-ink-muted hover:text-ink'
@@ -151,46 +152,51 @@ function HostWorkspace() {
       {/* ================================================================= */}
       {/* MAIN WORKSPACE                                                    */}
       {/* ================================================================= */}
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6">
+      <main className="mx-auto w-full max-w-7xl flex-1 space-y-4 px-3 py-4 sm:space-y-5 sm:px-6 sm:py-6">
+        {/* Compact Cross-Device Remote Display Connector */}
+        <RemoteConnectBar />
+
         {topMode === 'live' ? (
-          <div className="space-y-6">
+          <div className="space-y-5">
             {/* STREAMLINED LIVE BAR: Screen Switcher + Game Picker */}
-            <section className="flex flex-col gap-3 rounded-2xl border border-line bg-surface p-4 lg:flex-row lg:items-center lg:justify-between">
-              {/* Active Screen Switcher */}
-              <div className="flex flex-wrap items-center gap-2">
+            <section className="flex flex-col gap-3 rounded-2xl border border-line bg-surface p-3.5 sm:p-4 lg:flex-row lg:items-center lg:justify-between">
+              {/* Active Screen Switcher (3-column thumb grid on mobile) */}
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                 <span className="mr-1 inline-flex items-center gap-1.5 font-mono text-[11px] font-bold tracking-wider text-ink-muted uppercase">
                   <span className="h-2 w-2 rounded-full bg-err" />
                   Pantalla:
                 </span>
-                {screenModes.map(({ mode, label, hotkey, icon: Icon }) => {
-                  const isActive = state.displayMode === mode;
-                  return (
-                    <button
-                      key={mode}
-                      type="button"
-                      onClick={() => setDisplayMode(mode)}
-                      className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-bold transition active:scale-[0.98] ${
-                        isActive
-                          ? 'border-accent bg-accent text-accent-fg'
-                          : 'border-line bg-canvas text-ink hover:border-line-strong'
-                      }`}
-                    >
-                      <Icon className="h-3.5 w-3.5" />
-                      <span>{label}</span>
-                      <kbd
-                        className={`hidden font-mono text-[10px] sm:inline ${
-                          isActive ? 'opacity-75' : 'text-ink-subtle'
+                <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:items-center">
+                  {screenModes.map(({ mode, label, hotkey, icon: Icon }) => {
+                    const isActive = state.displayMode === mode;
+                    return (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => setDisplayMode(mode)}
+                        className={`inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border px-2.5 py-2 text-xs font-bold transition active:scale-[0.98] sm:min-h-0 sm:px-3.5 ${
+                          isActive
+                            ? 'border-accent bg-accent text-accent-fg'
+                            : 'border-line bg-canvas text-ink hover:border-line-strong'
                         }`}
                       >
-                        {hotkey}
-                      </kbd>
-                    </button>
-                  );
-                })}
+                        <Icon className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">{label}</span>
+                        <kbd
+                          className={`hidden font-mono text-[10px] sm:inline ${
+                            isActive ? 'opacity-75' : 'text-ink-subtle'
+                          }`}
+                        >
+                          {hotkey}
+                        </kbd>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
-              {/* Quick Active Game Module Switcher */}
-              <div className="flex flex-wrap items-center gap-1.5 border-t border-line pt-3 lg:border-t-0 lg:pt-0">
+              {/* Quick Active Game Module Switcher (horizontal scroll on mobile) */}
+              <div className="flex items-center gap-1.5 overflow-x-auto border-t border-line pt-3 pb-0.5 sm:flex-wrap sm:overflow-visible sm:pb-0 lg:border-t-0 lg:pt-0">
                 {GAME_MODULES.map((mod) => {
                   const isSelected = activeModule.id === mod.id;
                   const copy =
@@ -205,7 +211,7 @@ function HostWorkspace() {
                           setDisplayMode('game');
                         }
                       }}
-                      className={`rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition ${
+                      className={`min-h-[38px] shrink-0 rounded-lg border px-3 py-1.5 text-xs font-semibold transition sm:min-h-0 sm:px-2.5 ${
                         isSelected
                           ? 'border-ink bg-ink text-canvas'
                           : 'border-line bg-canvas text-ink-muted hover:border-line-strong hover:text-ink'

@@ -7,6 +7,11 @@ import {
 } from '../lib/defaults';
 import { isAudioUnlocked, playBroadcastCue } from '../lib/sound';
 import { TRANSLATIONS, type Translations } from '../lib/i18n';
+import {
+  getOrCreateDisplayRoomCode,
+  loadLastHostRoomCode,
+  PeerSyncClient,
+} from '../lib/peerSync';
 import { loadPersistedState, ShowSyncClient, type PeerInfo, type SyncTransport } from '../lib/sync';
 import {
   ACCENT_ORDER,
@@ -16,14 +21,19 @@ import {
   type EventMeta,
   type Language,
   type MusicControlPayload,
+  type MusicTrackSummary,
   type PreparedQuestion,
+  type RemoteConnectionStatus,
   type ScoreFlash,
   type ShowState,
   type SoundCue,
+  type SyncMessage,
   type Team,
   type TeamAccent,
   type ThemeId,
 } from '../types/show';
+
+export type { MusicTrackSummary };
 
 interface StoredMusicTrack {
   id: string;
@@ -32,18 +42,23 @@ interface StoredMusicTrack {
   buffer: ArrayBuffer;
 }
 
-export interface MusicTrackSummary {
-  id: string;
-  name: string;
-}
-
 interface ShowContextValue {
   state: ShowState;
   role: ClientRole;
   transport: SyncTransport;
   connectedDisplays: number;
   connectedHosts: number;
+  localConnectedDisplays: number;
   displayAudioReady: boolean;
+
+  // Cross-Device Remote Control (PeerJS)
+  roomCode: string;
+  remoteStatus: RemoteConnectionStatus;
+  remoteError: string | null;
+  remoteConnectedCount: number;
+  connectRemoteRoom: (code: string) => void;
+  disconnectRemoteRoom: () => void;
+  regenerateRoomCode: () => void;
 
   language: Language;
   setLanguage: (lang: Language) => void;
@@ -60,9 +75,10 @@ interface ShowContextValue {
   setSoundEnabled: (enabled: boolean) => void;
   notifyAudioUnlocked: () => void;
 
-  // Custom Background Music (synced via BroadcastChannel, never stored in localStorage)
+  // Custom Background Music (BroadcastChannel ArrayBuffer locally OR loaded directly on /display & controlled remotely via PeerJS)
   musicTracks: MusicTrackSummary[];
   musicControl: MusicControlPayload;
+  musicHostedOnDisplay: boolean;
   addMusicFiles: (files: FileList | File[]) => Promise<void>;
   selectMusicTrack: (trackId: string) => void;
   removeMusicTrack: (trackId: string) => void;
@@ -114,10 +130,24 @@ interface ShowProviderProps {
 }
 
 export function ShowProvider({ role, children }: ShowProviderProps) {
+  const clientIdRef = useRef<string>(createId(role));
+
   const [state, setState] = useState<ShowState>(() => loadPersistedState());
   const [peers, setPeers] = useState<Record<string, PeerInfo>>({});
   const [transport, setTransport] = useState<SyncTransport>('broadcast-channel');
   const [recentFlashes, setRecentFlashes] = useState<ScoreFlash[]>([]);
+
+  // Cross-device PeerJS state
+  const [roomCode, setRoomCode] = useState<string>(() =>
+    role === 'display' ? getOrCreateDisplayRoomCode() : loadLastHostRoomCode()
+  );
+  const [remoteStatus, setRemoteStatus] = useState<RemoteConnectionStatus>(
+    role === 'display' ? 'connecting' : 'disconnected'
+  );
+  const [remoteError, setRemoteError] = useState<string | null>(null);
+  const [remoteConnectedCount, setRemoteConnectedCount] = useState<number>(0);
+  const [remoteDisplayAudioReady, setRemoteDisplayAudioReady] = useState<boolean>(false);
+
   const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
     try {
       const saved = window.localStorage.getItem(`puntos_rapidos_sound_${role}`);
@@ -128,15 +158,18 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
     }
   });
 
-  // Custom Background Music state (in-memory only, transferred via BroadcastChannel)
+  // Custom Background Music state (in-memory only, never stored in localStorage)
   const [musicTracks, setMusicTracks] = useState<MusicTrackSummary[]>([]);
   const [musicControl, setMusicControl] = useState<MusicControlPayload>(DEFAULT_MUSIC_CONTROL);
+  const [musicHostedOnDisplay, setMusicHostedOnDisplay] = useState<boolean>(false);
 
   const musicBuffersRef = useRef<Map<string, StoredMusicTrack>>(new Map());
+  const musicTracksRef = useRef<MusicTrackSummary[]>([]);
+  musicTracksRef.current = musicTracks;
   const musicControlRef = useRef<MusicControlPayload>(DEFAULT_MUSIC_CONTROL);
   musicControlRef.current = musicControl;
 
-  // Dedicated audio player element (plays on /display; optional fallback on /host when no display is open)
+  // Dedicated audio player element (plays on /display; optional fallback on /host when no display is connected)
   const audioElRef = useRef<HTMLAudioElement | null>(null);
   const audioObjectUrlRef = useRef<string | null>(null);
   const loadedTrackIdRef = useRef<string | null>(null);
@@ -149,6 +182,7 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
 
   const connectedDisplaysRef = useRef<number>(0);
   const syncRef = useRef<ShowSyncClient | null>(null);
+  const peerSyncRef = useRef<PeerSyncClient | null>(null);
 
   const ensureAudioElement = useCallback((): HTMLAudioElement => {
     if (!audioElRef.current) {
@@ -160,7 +194,11 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
   }, []);
 
   const loadTrackIntoAudioElement = useCallback(
-    (track: { id: string; mimeType: string; buffer: ArrayBuffer }, control: MusicControlPayload, shouldPlayHere: boolean) => {
+    (
+      track: { id: string; mimeType: string; buffer: ArrayBuffer },
+      control: MusicControlPayload,
+      shouldPlayHere: boolean
+    ) => {
       const el = ensureAudioElement();
       if (loadedTrackIdRef.current !== track.id) {
         if (audioObjectUrlRef.current) {
@@ -189,6 +227,14 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
 
   const applyControlToAudioElement = useCallback(
     (control: MusicControlPayload, shouldPlayHere: boolean) => {
+      if (control.trackId && loadedTrackIdRef.current !== control.trackId) {
+        const stored = musicBuffersRef.current.get(control.trackId);
+        if (stored) {
+          loadTrackIntoAudioElement(stored, control, shouldPlayHere);
+          return;
+        }
+      }
+
       const el = audioElRef.current;
       if (!el) return;
       el.loop = control.loop;
@@ -201,7 +247,7 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
         el.play().catch(() => {});
       }
     },
-    []
+    [loadTrackIntoAudioElement]
   );
 
   useEffect(() => {
@@ -237,9 +283,20 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
     [role]
   );
 
-  const notifyAudioUnlocked = useCallback(() => {
+  const sendAllHeartbeats = useCallback(() => {
     syncRef.current?.sendHeartbeat();
-  }, []);
+    peerSyncRef.current?.send({
+      type: 'HEARTBEAT',
+      senderId: clientIdRef.current,
+      role,
+      timestamp: Date.now(),
+      audioUnlocked: isAudioUnlocked(),
+    });
+  }, [role]);
+
+  const notifyAudioUnlocked = useCallback(() => {
+    sendAllHeartbeats();
+  }, [sendAllHeartbeats]);
 
   const resumeDisplayMusic = useCallback(() => {
     if (role !== 'display') return;
@@ -251,6 +308,19 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
       el.loop = ctrl.loop;
       el.play().catch(() => {});
     }
+  }, [role]);
+
+  const broadcastDisplayMusicCatalog = useCallback(() => {
+    if (role !== 'display') return;
+    const tracks = musicTracksRef.current;
+    const ctrl = musicControlRef.current;
+    syncRef.current?.broadcastMusicCatalog(tracks, ctrl);
+    peerSyncRef.current?.send({
+      type: 'MUSIC_CATALOG',
+      senderId: clientIdRef.current,
+      tracks,
+      control: ctrl,
+    });
   }, [role]);
 
   const sendCurrentMusicToDisplays = useCallback(() => {
@@ -268,21 +338,66 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
     });
   }, [role]);
 
+  const handleIncomingState = useCallback(
+    (incoming: ShowState, fromRole: ClientRole) => {
+      setState((current) => {
+        if (role === 'display' && fromRole === 'host') {
+          return incoming;
+        }
+        if (incoming.updatedAt < current.updatedAt) {
+          return current;
+        }
+        return incoming;
+      });
+    },
+    [role]
+  );
+
+  const handleIncomingMusicControl = useCallback(
+    (incomingControl: MusicControlPayload) => {
+      setMusicControl(incomingControl);
+      musicControlRef.current = incomingControl;
+      if (role === 'display') {
+        applyControlToAudioElement(incomingControl, true);
+      }
+    },
+    [applyControlToAudioElement, role]
+  );
+
+  const handleIncomingMusicRemove = useCallback(
+    (trackId: string) => {
+      musicBuffersRef.current.delete(trackId);
+      setMusicTracks((prev) => {
+        const remaining = prev.filter((t) => t.id !== trackId);
+        if (musicControlRef.current.trackId === trackId) {
+          const fallback = remaining[0] ?? null;
+          const nextCtrl: MusicControlPayload = {
+            ...musicControlRef.current,
+            trackId: fallback?.id ?? null,
+            trackName: fallback?.name ?? null,
+            isPlaying: false,
+          };
+          setMusicControl(nextCtrl);
+          musicControlRef.current = nextCtrl;
+          if (role === 'display') {
+            applyControlToAudioElement(nextCtrl, false);
+          }
+        }
+        return remaining;
+      });
+    },
+    [applyControlToAudioElement, role]
+  );
+
+  // =========================================================================
+  // 1. LOCAL SYNC (BroadcastChannel + localStorage fallback)
+  // =========================================================================
   useEffect(() => {
     const client = new ShowSyncClient({
       role,
+      clientId: clientIdRef.current,
       getAudioUnlocked: () => isAudioUnlocked(),
-      onStateReceived: (incoming, fromRole) => {
-        setState((current) => {
-          if (role === 'display' && fromRole === 'host') {
-            return incoming;
-          }
-          if (incoming.updatedAt < current.updatedAt) {
-            return current;
-          }
-          return incoming;
-        });
-      },
+      onStateReceived: handleIncomingState,
       onStateRequested: () => {
         if (role === 'host') {
           client.broadcastState(stateRef.current);
@@ -299,23 +414,34 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
       },
       onMusicTrackReceived: (incoming) => {
         if (role !== 'display') return;
+        const track: StoredMusicTrack = {
+          id: incoming.trackId,
+          name: incoming.name,
+          mimeType: incoming.mimeType,
+          buffer: incoming.buffer,
+        };
+        musicBuffersRef.current.set(track.id, track);
+        setMusicTracks((prev) =>
+          prev.some((p) => p.id === track.id) ? prev : [...prev, { id: track.id, name: track.name }]
+        );
         setMusicControl(incoming.control);
         musicControlRef.current = incoming.control;
-        loadTrackIntoAudioElement(
-          { id: incoming.trackId, mimeType: incoming.mimeType, buffer: incoming.buffer },
-          incoming.control,
-          true
-        );
+        loadTrackIntoAudioElement(track, incoming.control, true);
       },
-      onMusicControlReceived: (incomingControl) => {
-        if (role !== 'display') return;
+      onMusicCatalogReceived: (tracks, incomingControl) => {
+        if (role !== 'host') return;
+        setMusicTracks(tracks);
         setMusicControl(incomingControl);
         musicControlRef.current = incomingControl;
-        applyControlToAudioElement(incomingControl, true);
+        setMusicHostedOnDisplay(tracks.length > 0);
       },
+      onMusicControlReceived: handleIncomingMusicControl,
+      onMusicRemoveReceived: handleIncomingMusicRemove,
       onMusicRequested: () => {
         if (role === 'host') {
           sendCurrentMusicToDisplays();
+        } else if (role === 'display' && musicTracksRef.current.length > 0) {
+          broadcastDisplayMusicCatalog();
         }
       },
       onPeersChanged: (nextPeers) => {
@@ -332,29 +458,204 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
     };
   }, [
     role,
+    handleIncomingState,
+    handleIncomingMusicControl,
+    handleIncomingMusicRemove,
     pushFlash,
     sendCurrentMusicToDisplays,
+    broadcastDisplayMusicCatalog,
     loadTrackIntoAudioElement,
-    applyControlToAudioElement,
   ]);
 
-  const { connectedDisplays, connectedHosts, displayAudioReady } = useMemo(() => {
-    let displays = 0;
-    let hosts = 0;
-    let audioReady = false;
+  // =========================================================================
+  // 2. CROSS-DEVICE REMOTE SYNC (PeerJS P2P DataConnection)
+  // =========================================================================
+  useEffect(() => {
+    const peerClient = new PeerSyncClient(
+      {
+        role,
+        clientId: clientIdRef.current,
+        onRoomCodeChange: (code) => setRoomCode(code),
+        onStatusChange: (status, err) => {
+          setRemoteStatus(status);
+          setRemoteError(err);
+          if (status === 'disconnected') {
+            setRemoteDisplayAudioReady(false);
+          }
+        },
+        onConnectionsChange: (count) => {
+          setRemoteConnectedCount(count);
+          if (count === 0) {
+            setRemoteDisplayAudioReady(false);
+          }
+        },
+        onPeerOpened: (conn) => {
+          // Enviar heartbeat inmediato
+          peerClient.sendToConnection(conn, {
+            type: 'HEARTBEAT',
+            senderId: clientIdRef.current,
+            role,
+            timestamp: Date.now(),
+            audioUnlocked: isAudioUnlocked(),
+          });
+
+          if (role === 'host') {
+            // Empujar el estado completo al conectar o reconectar
+            peerClient.sendToConnection(conn, {
+              type: 'STATE_UPDATE',
+              senderId: clientIdRef.current,
+              role: 'host',
+              state: stateRef.current,
+            });
+            // Pedir al /display si ya tiene pistas de música cargadas
+            peerClient.sendToConnection(conn, {
+              type: 'MUSIC_REQUEST',
+              senderId: clientIdRef.current,
+            });
+          } else {
+            // /display pide estado actualizado al /host y comparte su catálogo local de música
+            peerClient.sendToConnection(conn, {
+              type: 'REQUEST_STATE',
+              senderId: clientIdRef.current,
+              role: 'display',
+            });
+            if (musicTracksRef.current.length > 0) {
+              peerClient.sendToConnection(conn, {
+                type: 'MUSIC_CATALOG',
+                senderId: clientIdRef.current,
+                tracks: musicTracksRef.current,
+                control: musicControlRef.current,
+              });
+            }
+          }
+        },
+        onMessage: (msg: SyncMessage) => {
+          switch (msg.type) {
+            case 'STATE_UPDATE':
+              handleIncomingState(msg.state, msg.role);
+              break;
+            case 'REQUEST_STATE':
+              if (role === 'host') {
+                peerClient.send({
+                  type: 'STATE_UPDATE',
+                  senderId: clientIdRef.current,
+                  role: 'host',
+                  state: stateRef.current,
+                });
+              }
+              break;
+            case 'SCORE_FLASH':
+              pushFlash(msg.flash);
+              break;
+            case 'SOUND_CUE':
+              if (!stateRef.current.audioMuted && soundEnabledRef.current) {
+                playBroadcastCue(msg.cue);
+              }
+              break;
+            case 'MUSIC_CATALOG':
+              if (role === 'host') {
+                setMusicTracks(msg.tracks);
+                setMusicControl(msg.control);
+                musicControlRef.current = msg.control;
+                setMusicHostedOnDisplay(msg.tracks.length > 0);
+              }
+              break;
+            case 'MUSIC_CONTROL':
+              handleIncomingMusicControl(msg.control);
+              break;
+            case 'MUSIC_REMOVE':
+              handleIncomingMusicRemove(msg.trackId);
+              break;
+            case 'MUSIC_REQUEST':
+              if (role === 'display' && musicTracksRef.current.length > 0) {
+                peerClient.send({
+                  type: 'MUSIC_CATALOG',
+                  senderId: clientIdRef.current,
+                  tracks: musicTracksRef.current,
+                  control: musicControlRef.current,
+                });
+              }
+              break;
+            case 'HEARTBEAT':
+              if (msg.role === 'display' && msg.audioUnlocked !== undefined) {
+                setRemoteDisplayAudioReady(msg.audioUnlocked);
+              }
+              break;
+          }
+        },
+      },
+      () => ({
+        type: 'HEARTBEAT',
+        senderId: clientIdRef.current,
+        role,
+        timestamp: Date.now(),
+        audioUnlocked: isAudioUnlocked(),
+      })
+    );
+
+    peerSyncRef.current = peerClient;
+
+    if (role === 'display') {
+      peerClient.startDisplayRoom();
+    }
+
+    return () => {
+      peerClient.destroy();
+      peerSyncRef.current = null;
+    };
+  }, [
+    role,
+    handleIncomingState,
+    handleIncomingMusicControl,
+    handleIncomingMusicRemove,
+    pushFlash,
+  ]);
+
+  const connectRemoteRoom = useCallback(
+    (code: string) => {
+      if (role !== 'host') return;
+      peerSyncRef.current?.connectToRoom(code);
+    },
+    [role]
+  );
+
+  const disconnectRemoteRoom = useCallback(() => {
+    if (role !== 'host') return;
+    peerSyncRef.current?.disconnect();
+  }, [role]);
+
+  const regenerateRoomCode = useCallback(() => {
+    if (role !== 'display') return;
+    peerSyncRef.current?.regenerateDisplayRoom();
+  }, [role]);
+
+  const {
+    localConnectedDisplays,
+    connectedDisplays,
+    connectedHosts,
+    displayAudioReady,
+  } = useMemo(() => {
+    let localDisplays = 0;
+    let localHosts = 0;
+    let localAudioReady = false;
     for (const p of Object.values(peers)) {
       if (p.role === 'display') {
-        displays += 1;
-        if (p.audioUnlocked) audioReady = true;
+        localDisplays += 1;
+        if (p.audioUnlocked) localAudioReady = true;
       }
-      if (p.role === 'host') hosts += 1;
+      if (p.role === 'host') localHosts += 1;
     }
+
+    const remoteDisplays = role === 'host' ? remoteConnectedCount : 0;
+    const remoteHosts = role === 'display' ? remoteConnectedCount : 0;
+
     return {
-      connectedDisplays: displays,
-      connectedHosts: hosts,
-      displayAudioReady: audioReady,
+      localConnectedDisplays: localDisplays,
+      connectedDisplays: localDisplays + remoteDisplays,
+      connectedHosts: localHosts + remoteHosts,
+      displayAudioReady: localAudioReady || remoteDisplayAudioReady,
     };
-  }, [peers]);
+  }, [peers, remoteConnectedCount, remoteDisplayAudioReady, role]);
 
   connectedDisplaysRef.current = connectedDisplays;
 
@@ -365,7 +666,7 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
     applyControlToAudioElement(musicControlRef.current, shouldPlayHere);
   }, [role, state.audioMuted, soundEnabled, connectedDisplays, applyControlToAudioElement]);
 
-  // --- Custom Background Music Controls (Host) ---
+  // --- Custom Background Music Controls (Works on BOTH /display and /host) ---
 
   const addMusicFiles = useCallback(
     async (files: FileList | File[]) => {
@@ -392,16 +693,18 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
 
       if (added.length === 0) return;
 
-      setMusicTracks((prev) => [
-        ...prev,
+      const nextTracks = [
+        ...musicTracksRef.current,
         ...added.map((tr) => ({ id: tr.id, name: tr.name })),
-      ]);
+      ];
+      setMusicTracks(nextTracks);
+      musicTracksRef.current = nextTracks;
 
-      // Auto-select first added track if none is selected yet
-      if (!musicControlRef.current.trackId) {
+      let nextCtrl = musicControlRef.current;
+      if (!nextCtrl.trackId) {
         const first = added[0];
-        const nextCtrl: MusicControlPayload = {
-          ...musicControlRef.current,
+        nextCtrl = {
+          ...nextCtrl,
           trackId: first.id,
           trackName: first.name,
         };
@@ -412,11 +715,24 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
           role === 'display' || (soundEnabledRef.current && connectedDisplaysRef.current === 0);
         loadTrackIntoAudioElement(first, nextCtrl, shouldPlayLocal);
 
-        syncRef.current?.broadcastMusicTrack({
-          trackId: first.id,
-          name: first.name,
-          mimeType: first.mimeType,
-          buffer: first.buffer,
+        if (role === 'host') {
+          setMusicHostedOnDisplay(false);
+          syncRef.current?.broadcastMusicTrack({
+            trackId: first.id,
+            name: first.name,
+            mimeType: first.mimeType,
+            buffer: first.buffer,
+            control: nextCtrl,
+          });
+        }
+      }
+
+      if (role === 'display') {
+        syncRef.current?.broadcastMusicCatalog(nextTracks, nextCtrl);
+        peerSyncRef.current?.send({
+          type: 'MUSIC_CATALOG',
+          senderId: clientIdRef.current,
+          tracks: nextTracks,
           control: nextCtrl,
         });
       }
@@ -426,51 +742,73 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
 
   const selectMusicTrack = useCallback(
     (trackId: string) => {
+      const trackMeta = musicTracksRef.current.find((item) => item.id === trackId);
       const stored = musicBuffersRef.current.get(trackId);
-      if (!stored) return;
+      if (!trackMeta && !stored) return;
 
       const nextCtrl: MusicControlPayload = {
         ...musicControlRef.current,
-        trackId: stored.id,
-        trackName: stored.name,
+        trackId,
+        trackName: stored?.name ?? trackMeta?.name ?? null,
       };
       setMusicControl(nextCtrl);
       musicControlRef.current = nextCtrl;
 
-      const shouldPlayLocal =
-        role === 'display' || (soundEnabledRef.current && connectedDisplaysRef.current === 0);
-      loadTrackIntoAudioElement(stored, nextCtrl, shouldPlayLocal);
+      if (stored) {
+        const shouldPlayLocal =
+          role === 'display' || (soundEnabledRef.current && connectedDisplaysRef.current === 0);
+        loadTrackIntoAudioElement(stored, nextCtrl, shouldPlayLocal);
 
-      syncRef.current?.broadcastMusicTrack({
-        trackId: stored.id,
-        name: stored.name,
-        mimeType: stored.mimeType,
-        buffer: stored.buffer,
+        if (role === 'host') {
+          syncRef.current?.broadcastMusicTrack({
+            trackId: stored.id,
+            name: stored.name,
+            mimeType: stored.mimeType,
+            buffer: stored.buffer,
+            control: nextCtrl,
+          });
+        }
+      }
+
+      // Enviar siempre comando liviano de control (clave para controlar pistas cargadas en /display desde el celular)
+      syncRef.current?.broadcastMusicControl(nextCtrl);
+      peerSyncRef.current?.send({
+        type: 'MUSIC_CONTROL',
+        senderId: clientIdRef.current,
         control: nextCtrl,
       });
+
+      if (role === 'display') {
+        broadcastDisplayMusicCatalog();
+      }
     },
-    [loadTrackIntoAudioElement, role]
+    [broadcastDisplayMusicCatalog, loadTrackIntoAudioElement, role]
   );
 
   const removeMusicTrack = useCallback(
     (trackId: string) => {
       musicBuffersRef.current.delete(trackId);
-      setMusicTracks((prev) => {
-        const remaining = prev.filter((item) => item.id !== trackId);
-        if (musicControlRef.current.trackId === trackId) {
-          const fallback = remaining[0] ?? null;
-          if (fallback) {
-            const stored = musicBuffersRef.current.get(fallback.id);
-            const nextCtrl: MusicControlPayload = {
-              ...musicControlRef.current,
-              trackId: fallback.id,
-              trackName: fallback.name,
-              isPlaying: false,
-            };
-            setMusicControl(nextCtrl);
-            musicControlRef.current = nextCtrl;
-            if (stored) {
-              loadTrackIntoAudioElement(stored, nextCtrl, false);
+      const remaining = musicTracksRef.current.filter((item) => item.id !== trackId);
+      setMusicTracks(remaining);
+      musicTracksRef.current = remaining;
+
+      let nextCtrl = musicControlRef.current;
+      if (nextCtrl.trackId === trackId) {
+        const fallback = remaining[0] ?? null;
+        nextCtrl = {
+          ...nextCtrl,
+          trackId: fallback?.id ?? null,
+          trackName: fallback?.name ?? null,
+          isPlaying: false,
+        };
+        setMusicControl(nextCtrl);
+        musicControlRef.current = nextCtrl;
+
+        if (fallback) {
+          const stored = musicBuffersRef.current.get(fallback.id);
+          if (stored) {
+            loadTrackIntoAudioElement(stored, nextCtrl, false);
+            if (role === 'host') {
               syncRef.current?.broadcastMusicTrack({
                 trackId: stored.id,
                 name: stored.name,
@@ -479,23 +817,30 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
                 control: nextCtrl,
               });
             }
-          } else {
-            const nextCtrl: MusicControlPayload = {
-              ...musicControlRef.current,
-              trackId: null,
-              trackName: null,
-              isPlaying: false,
-            };
-            setMusicControl(nextCtrl);
-            musicControlRef.current = nextCtrl;
-            applyControlToAudioElement(nextCtrl, false);
-            syncRef.current?.broadcastMusicControl(nextCtrl);
           }
+        } else {
+          applyControlToAudioElement(nextCtrl, false);
         }
-        return remaining;
+      }
+
+      syncRef.current?.broadcastMusicRemove(trackId);
+      peerSyncRef.current?.send({
+        type: 'MUSIC_REMOVE',
+        senderId: clientIdRef.current,
+        trackId,
       });
+      syncRef.current?.broadcastMusicControl(nextCtrl);
+      peerSyncRef.current?.send({
+        type: 'MUSIC_CONTROL',
+        senderId: clientIdRef.current,
+        control: nextCtrl,
+      });
+
+      if (role === 'display') {
+        broadcastDisplayMusicCatalog();
+      }
     },
-    [applyControlToAudioElement, loadTrackIntoAudioElement]
+    [applyControlToAudioElement, broadcastDisplayMusicCatalog, loadTrackIntoAudioElement, role]
   );
 
   const updateMusicControl = useCallback(
@@ -509,18 +854,16 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
 
       const shouldPlayLocal =
         role === 'display' || (soundEnabledRef.current && connectedDisplaysRef.current === 0);
-      if (nextCtrl.trackId && loadedTrackIdRef.current !== nextCtrl.trackId) {
-        const stored = musicBuffersRef.current.get(nextCtrl.trackId);
-        if (stored) {
-          loadTrackIntoAudioElement(stored, nextCtrl, shouldPlayLocal);
-        }
-      } else {
-        applyControlToAudioElement(nextCtrl, shouldPlayLocal);
-      }
+      applyControlToAudioElement(nextCtrl, shouldPlayLocal);
 
       syncRef.current?.broadcastMusicControl(nextCtrl);
+      peerSyncRef.current?.send({
+        type: 'MUSIC_CONTROL',
+        senderId: clientIdRef.current,
+        control: nextCtrl,
+      });
     },
-    [applyControlToAudioElement, loadTrackIntoAudioElement, role]
+    [applyControlToAudioElement, role]
   );
 
   const toggleMusicPlay = useCallback(() => {
@@ -545,17 +888,26 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
 
   // --- Core Show State Mutations ---
 
-  const commitState = useCallback((updater: (prev: ShowState) => ShowState) => {
-    setState((prev) => {
-      const next: ShowState = {
-        ...updater(prev),
-        updatedAt: Math.max(Date.now(), prev.updatedAt + 1),
-      };
-      stateRef.current = next;
-      syncRef.current?.broadcastState(next);
-      return next;
-    });
-  }, []);
+  const commitState = useCallback(
+    (updater: (prev: ShowState) => ShowState) => {
+      setState((prev) => {
+        const next: ShowState = {
+          ...updater(prev),
+          updatedAt: Math.max(Date.now(), prev.updatedAt + 1),
+        };
+        stateRef.current = next;
+        syncRef.current?.broadcastState(next);
+        peerSyncRef.current?.send({
+          type: 'STATE_UPDATE',
+          senderId: clientIdRef.current,
+          role,
+          state: next,
+        });
+        return next;
+      });
+    },
+    [role]
+  );
 
   const triggerCue = useCallback((cue: SoundCue) => {
     if (stateRef.current.audioMuted) return;
@@ -563,6 +915,11 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
       playBroadcastCue(cue);
     }
     syncRef.current?.broadcastSoundCue(cue);
+    peerSyncRef.current?.send({
+      type: 'SOUND_CUE',
+      senderId: clientIdRef.current,
+      cue,
+    });
   }, []);
 
   const setAudioMuted = useCallback(
@@ -702,6 +1059,11 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
       };
       pushFlash(flash);
       syncRef.current?.broadcastScoreFlash(flash);
+      peerSyncRef.current?.send({
+        type: 'SCORE_FLASH',
+        senderId: clientIdRef.current,
+        flash,
+      });
       if (!options?.silent) {
         triggerCue(cleanDelta > 0 ? 'scoreUp' : 'scoreDown');
       }
@@ -852,7 +1214,15 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
       transport,
       connectedDisplays,
       connectedHosts,
+      localConnectedDisplays,
       displayAudioReady,
+      roomCode,
+      remoteStatus,
+      remoteError,
+      remoteConnectedCount,
+      connectRemoteRoom,
+      disconnectRemoteRoom,
+      regenerateRoomCode,
       language: state.language,
       setLanguage,
       t,
@@ -866,6 +1236,7 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
       notifyAudioUnlocked,
       musicTracks,
       musicControl,
+      musicHostedOnDisplay,
       addMusicFiles,
       selectMusicTrack,
       removeMusicTrack,
@@ -899,7 +1270,15 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
       transport,
       connectedDisplays,
       connectedHosts,
+      localConnectedDisplays,
       displayAudioReady,
+      roomCode,
+      remoteStatus,
+      remoteError,
+      remoteConnectedCount,
+      connectRemoteRoom,
+      disconnectRemoteRoom,
+      regenerateRoomCode,
       setLanguage,
       t,
       setTheme,
@@ -910,6 +1289,7 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
       notifyAudioUnlocked,
       musicTracks,
       musicControl,
+      musicHostedOnDisplay,
       addMusicFiles,
       selectMusicTrack,
       removeMusicTrack,

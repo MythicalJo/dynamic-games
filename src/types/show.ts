@@ -101,6 +101,11 @@ export type SoundCue =
   | 'stampTruth'
   | 'stampLie';
 
+export interface MusicTrackSummary {
+  id: string;
+  name: string;
+}
+
 export interface MusicControlPayload {
   trackId: string | null;
   trackName: string | null;
@@ -110,6 +115,14 @@ export interface MusicControlPayload {
   seekTime?: number;
 }
 
+export type RemoteConnectionStatus =
+  | 'disconnected'
+  | 'connecting'
+  | 'ready'
+  | 'connected'
+  | 'reconnecting'
+  | 'error';
+
 export type ClientRole = 'host' | 'display';
 
 export type SyncMessage =
@@ -118,6 +131,7 @@ export type SyncMessage =
       senderId: string;
       role: ClientRole;
       state: ShowState;
+      sentAt?: number;
     }
   | {
       type: 'REQUEST_STATE';
@@ -144,9 +158,20 @@ export type SyncMessage =
       control: MusicControlPayload;
     }
   | {
+      type: 'MUSIC_CATALOG';
+      senderId: string;
+      tracks: MusicTrackSummary[];
+      control: MusicControlPayload;
+    }
+  | {
       type: 'MUSIC_CONTROL';
       senderId: string;
       control: MusicControlPayload;
+    }
+  | {
+      type: 'MUSIC_REMOVE';
+      senderId: string;
+      trackId: string;
     }
   | {
       type: 'MUSIC_REQUEST';

@@ -83,24 +83,26 @@ export function QuickScoresRail({ onOpenTeams }: QuickScoresRailProps) {
                   </span>
                 </div>
 
-                {/* Tactile Score Actions */}
-                <div className="mt-3 flex items-center gap-1.5">
-                  {STEP_DELTAS.map((delta) => (
-                    <button
-                      key={delta}
-                      type="button"
-                      onClick={() => adjustTeamScore(team.id, delta)}
-                      className={`flex-1 rounded-lg border py-1.5 font-mono text-xs font-bold transition active:scale-95 ${
-                        delta > 0
-                          ? 'border-line bg-surface text-ink hover:border-line-strong hover:bg-surface-2'
-                          : 'border-line bg-canvas text-err hover:bg-err-soft'
-                      }`}
-                    >
-                      {delta > 0 ? `+${delta}` : delta}
-                    </button>
-                  ))}
+                {/* Tactile Score Actions (thumb-friendly on phones) */}
+                <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                  <div className="grid flex-1 grid-cols-4 gap-1.5">
+                    {STEP_DELTAS.map((delta) => (
+                      <button
+                        key={delta}
+                        type="button"
+                        onClick={() => adjustTeamScore(team.id, delta)}
+                        className={`min-h-[42px] rounded-xl border py-2 font-mono text-xs font-bold transition active:scale-95 sm:min-h-0 sm:rounded-lg sm:py-1.5 ${
+                          delta > 0
+                            ? 'border-line bg-surface text-ink hover:border-line-strong hover:bg-surface-2'
+                            : 'border-line bg-canvas text-err hover:bg-err-soft'
+                        }`}
+                      >
+                        {delta > 0 ? `+${delta}` : delta}
+                      </button>
+                    ))}
+                  </div>
 
-                  <div className="flex items-center overflow-hidden rounded-lg border border-line bg-canvas">
+                  <div className="flex min-h-[42px] items-center overflow-hidden rounded-xl border border-line bg-canvas sm:min-h-0 sm:rounded-lg">
                     <input
                       type="number"
                       inputMode="numeric"
@@ -112,23 +114,23 @@ export function QuickScoresRail({ onOpenTeams }: QuickScoresRailProps) {
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') applyCustom(team.id, 1);
                       }}
-                      className="w-11 bg-transparent px-1.5 py-1 text-center font-mono text-xs font-semibold text-ink outline-none placeholder:text-ink-subtle"
+                      className="w-12 bg-transparent px-1.5 py-1.5 text-center font-mono text-sm font-semibold text-ink outline-none placeholder:text-ink-subtle sm:w-11 sm:py-1 sm:text-xs"
                     />
                     <button
                       type="button"
                       onClick={() => applyCustom(team.id, -1)}
-                      className="border-l border-line p-1.5 text-err hover:bg-err-soft"
+                      className="border-l border-line px-2.5 py-2 text-err hover:bg-err-soft sm:p-1.5"
                       title="Restar puntos"
                     >
-                      <Minus className="h-3 w-3" />
+                      <Minus className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
                     </button>
                     <button
                       type="button"
                       onClick={() => applyCustom(team.id, 1)}
-                      className="border-l border-line p-1.5 text-ok hover:bg-ok-soft"
+                      className="border-l border-line px-2.5 py-2 text-ok hover:bg-ok-soft sm:p-1.5"
                       title="Sumar puntos"
                     >
-                      <Plus className="h-3 w-3" />
+                      <Plus className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
                     </button>
                   </div>
                 </div>

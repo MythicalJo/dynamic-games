@@ -86,7 +86,7 @@ export function MentalSyncDisplay() {
           >
             <div className="inline-flex items-center gap-3 rounded-full border border-line bg-surface px-5 py-1.5">
               <span className="font-mono text-xs font-bold tracking-[0.22em] text-ink-muted uppercase">
-                {activePrompt?.type === 'fill' ? t.mentalSync.fillTag : t.mentalSync.whoTag}
+                {t.mentalSync.whoTag}
               </span>
               <span className="rounded-full bg-accent px-3 py-0.5 font-mono text-xs font-bold text-accent-fg">
                 +{MENTAL_SYNC_MATCH_POINTS} {t.common.pts}

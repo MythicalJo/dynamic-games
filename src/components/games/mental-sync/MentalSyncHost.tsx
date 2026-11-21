@@ -18,7 +18,6 @@ import { formatBroadcastTimer } from '../../../lib/timer';
 import type { GameHostProps } from '../../../modules/registry';
 import {
   MENTAL_SYNC_MATCH_POINTS,
-  type MentalSyncPromptType,
 } from '../../../types/mentalSync';
 import { useMentalSync } from './useMentalSync';
 
@@ -43,10 +42,8 @@ export function MentalSyncHost({ mode }: GameHostProps) {
     triggerResult,
   } = useMentalSync();
 
-  const [newType, setNewType] = useState<MentalSyncPromptType>('who');
   const [newText, setNewText] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editType, setEditType] = useState<MentalSyncPromptType>('who');
   const [editText, setEditText] = useState('');
 
   const currentIdx = syncState.prompts.findIndex((p) => p.id === syncState.selectedPromptId);
@@ -61,7 +58,7 @@ export function MentalSyncHost({ mode }: GameHostProps) {
   const handleAddPrompt = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newText.trim()) return;
-    addPrompt(newType, newText);
+    addPrompt('who', newText);
     setNewText('');
   };
 
@@ -89,20 +86,7 @@ export function MentalSyncHost({ mode }: GameHostProps) {
           onSubmit={handleAddPrompt}
           className="mb-5 grid grid-cols-1 gap-3 rounded-xl border border-line bg-canvas p-4 md:grid-cols-12"
         >
-          <div className="md:col-span-3">
-            <label className="mb-1 block text-xs font-semibold text-ink-muted">
-              {t.mentalSync.promptType}
-            </label>
-            <select
-              value={newType}
-              onChange={(e) => setNewType(e.target.value as MentalSyncPromptType)}
-              className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-xs font-semibold text-ink outline-none focus:border-accent"
-            >
-              <option value="who">{t.mentalSync.whoTag}</option>
-              <option value="fill">{t.mentalSync.fillTag}</option>
-            </select>
-          </div>
-          <div className="md:col-span-7">
+          <div className="md:col-span-10">
             <label className="mb-1 block text-xs font-semibold text-ink-muted">
               {t.mentalSync.promptText}
             </label>
@@ -134,14 +118,6 @@ export function MentalSyncHost({ mode }: GameHostProps) {
             if (isEditing) {
               return (
                 <div key={p.id} className="flex flex-col gap-2 bg-surface p-3 sm:flex-row">
-                  <select
-                    value={editType}
-                    onChange={(e) => setEditType(e.target.value as MentalSyncPromptType)}
-                    className="rounded-lg border border-line bg-canvas px-2.5 py-1.5 text-xs font-semibold text-ink"
-                  >
-                    <option value="who">{t.mentalSync.whoTag}</option>
-                    <option value="fill">{t.mentalSync.fillTag}</option>
-                  </select>
                   <input
                     type="text"
                     value={editText}
@@ -152,7 +128,7 @@ export function MentalSyncHost({ mode }: GameHostProps) {
                     <button
                       type="button"
                       onClick={() => {
-                        if (editText.trim()) updatePrompt(p.id, { type: editType, text: editText });
+                        if (editText.trim()) updatePrompt(p.id, { type: 'who', text: editText });
                         setEditingId(null);
                       }}
                       className="rounded-lg bg-accent p-2 text-accent-fg"
@@ -177,7 +153,7 @@ export function MentalSyncHost({ mode }: GameHostProps) {
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-xs text-ink-subtle">#{idx + 1}</span>
                     <span className="rounded bg-surface-2 px-2 py-0.5 font-mono text-[10px] font-bold text-ink-muted uppercase">
-                      {p.type === 'who' ? t.mentalSync.whoTag : t.mentalSync.fillTag}
+                      {t.mentalSync.whoTag}
                     </span>
                   </div>
                   <p className="mt-1 text-sm font-medium text-ink">{p.text}</p>
@@ -199,7 +175,6 @@ export function MentalSyncHost({ mode }: GameHostProps) {
                     type="button"
                     onClick={() => {
                       setEditingId(p.id);
-                      setEditType(p.type);
                       setEditText(p.text);
                     }}
                     className="rounded-lg border border-line p-1.5 text-ink-muted hover:text-ink"
@@ -294,7 +269,7 @@ export function MentalSyncHost({ mode }: GameHostProps) {
             {activePrompt && (
               <div className="mt-3 rounded-xl border border-line bg-canvas p-4">
                 <span className="font-mono text-[10px] font-bold tracking-wider text-accent uppercase">
-                  {activePrompt.type === 'who' ? t.mentalSync.whoTag : t.mentalSync.fillTag}
+                  {t.mentalSync.whoTag}
                 </span>
                 <p className="mt-1 text-base font-bold text-ink">
                   {resolvePromptText(activePrompt.text)}
@@ -339,25 +314,25 @@ export function MentalSyncHost({ mode }: GameHostProps) {
               <button
                 type="button"
                 onClick={pauseTimer}
-                className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-warn py-2.5 text-sm font-bold text-warn-fg"
+                className="inline-flex min-h-[52px] flex-1 items-center justify-center gap-2 rounded-xl bg-warn py-3 text-base font-extrabold text-warn-fg active:scale-[0.98] sm:min-h-[44px] sm:text-sm"
               >
-                <Pause className="h-4 w-4 fill-current" />
+                <Pause className="h-5 w-5 fill-current sm:h-4 sm:w-4" />
                 {t.common.pause}
               </button>
             ) : (
               <button
                 type="button"
                 onClick={startTimer}
-                className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-accent py-2.5 text-sm font-bold text-accent-fg"
+                className="inline-flex min-h-[52px] flex-1 items-center justify-center gap-2 rounded-xl bg-accent py-3 text-base font-extrabold text-accent-fg active:scale-[0.98] sm:min-h-[44px] sm:text-sm"
               >
-                <Play className="h-4 w-4 fill-current" />
+                <Play className="h-5 w-5 fill-current sm:h-4 sm:w-4" />
                 {t.mentalSync.start15s}
               </button>
             )}
             <button
               type="button"
               onClick={resetTimer}
-              className="rounded-xl border border-line bg-canvas p-2.5 text-ink-muted hover:text-ink"
+              className="min-h-[52px] rounded-xl border border-line bg-canvas px-3.5 py-2.5 text-ink-muted hover:text-ink active:scale-95 sm:min-h-[44px]"
             >
               <RotateCcw className="h-4 w-4" />
             </button>

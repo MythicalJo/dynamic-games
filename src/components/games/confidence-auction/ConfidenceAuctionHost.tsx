@@ -382,32 +382,32 @@ export function ConfidenceAuctionHost({ mode }: GameHostProps) {
               <button
                 type="button"
                 onClick={pauseTimer}
-                className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-warn py-2.5 text-sm font-bold text-warn-fg"
+                className="inline-flex min-h-[52px] flex-1 items-center justify-center gap-2 rounded-xl bg-warn py-3 text-base font-extrabold text-warn-fg active:scale-[0.98] sm:min-h-[44px] sm:text-sm"
               >
-                <Pause className="h-4 w-4 fill-current" />
+                <Pause className="h-5 w-5 fill-current sm:h-4 sm:w-4" />
                 {t.common.pause}
               </button>
             ) : (
               <button
                 type="button"
                 onClick={startTimer}
-                className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-accent py-2.5 text-sm font-bold text-accent-fg"
+                className="inline-flex min-h-[52px] flex-1 items-center justify-center gap-2 rounded-xl bg-accent py-3 text-base font-extrabold text-accent-fg active:scale-[0.98] sm:min-h-[44px] sm:text-sm"
               >
-                <Play className="h-4 w-4 fill-current" />
+                <Play className="h-5 w-5 fill-current sm:h-4 sm:w-4" />
                 {t.auction.start30s}
               </button>
             )}
             <button
               type="button"
               onClick={addFiveSeconds}
-              className="rounded-xl border border-line bg-canvas px-3 py-2.5 font-mono text-xs font-bold text-ink"
+              className="min-h-[52px] rounded-xl border border-line bg-canvas px-3.5 py-2.5 font-mono text-xs font-bold text-ink active:scale-95 sm:min-h-[44px]"
             >
               +5s
             </button>
             <button
               type="button"
               onClick={resetTimer}
-              className="rounded-xl border border-line bg-canvas p-2.5 text-ink-muted hover:text-ink"
+              className="min-h-[52px] rounded-xl border border-line bg-canvas px-3 py-2.5 text-ink-muted hover:text-ink active:scale-95 sm:min-h-[44px]"
             >
               <RotateCcw className="h-4 w-4" />
             </button>

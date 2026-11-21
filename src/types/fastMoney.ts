@@ -62,29 +62,35 @@ export interface FastMoneyState {
   recentQuestions: string[];
 }
 
+function fromBank(questionText: string): string {
+  return (
+    FAST_MONEY_QUESTION_BANK.find((q) => q.question === questionText)?.question ?? questionText
+  );
+}
+
 export const SAMPLE_FAST_MONEY_QUESTIONS: FastMoneyQuestionItem[] = [
   {
-    question: FAST_MONEY_QUESTION_BANK[0].question,
+    question: fromBank('¿Cuál es su comida favorita para pedir a domicilio?'),
     playerAAnswer: 'Tacos al pastor con todo',
     playerBAnswer: 'Sushi o alitas picantes',
   },
   {
-    question: FAST_MONEY_QUESTION_BANK[7].question,
+    question: fromBank('¿Qué hace literalmente primero al despertar?'),
     playerAAnswer: 'Revisar el celular sin levantarse',
     playerBAnswer: 'Apagar tres alarmas y dormir 5 min más',
   },
   {
-    question: FAST_MONEY_QUESTION_BANK[27].question,
+    question: fromBank('¿Cuál es su mayor miedo irracional?'),
     playerAAnswer: 'Las cucarachas voladoras',
     playerBAnswer: 'Quedarse encerrado en un elevador',
   },
   {
-    question: FAST_MONEY_QUESTION_BANK[8].question,
+    question: fromBank('¿Cuál es su excusa favorita para cancelar un plan?'),
     playerAAnswer: '«Me sentí mal del estómago»',
     playerBAnswer: '«Se me juntó un pendiente familiar»',
   },
   {
-    question: FAST_MONEY_QUESTION_BANK[20].question,
+    question: fromBank('¿Cuál es su canción infaltable en el karaoke?'),
     playerAAnswer: 'Lamento Boliviano',
     playerBAnswer: 'Rosa Pastel',
   },

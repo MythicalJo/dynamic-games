@@ -14,79 +14,68 @@ import { CONFIDENCE_AUCTION_MODULE_ID } from '../types/confidenceAuction';
 import { MENTAL_SYNC_MODULE_ID } from '../types/mentalSync';
 import { POLYGRAPH_MODULE_ID } from '../types/polygraph';
 
+export interface GameHostProps {
+  mode: 'live' | 'setup';
+}
+
 export interface GameModuleMeta {
   id: string;
   name: string;
   shortName: string;
   subtitle: string;
   description: string;
-  accent: 'gold' | 'cyan' | 'rose' | 'emerald';
   status: 'active' | 'slot';
-  HostComponent?: React.ComponentType;
+  HostComponent?: React.ComponentType<GameHostProps>;
   DisplayComponent?: React.ComponentType;
 }
 
-/**
- * Central Game Module Registry.
- * Every playable game round plugs in cleanly with its own Host & Display views.
- */
 export const GAME_MODULES: GameModuleMeta[] = [
   {
     id: FAST_MONEY_MODULE_ID,
-    name: 'Friend Fast Money',
-    shortName: 'Friend Fast Money',
-    subtitle: '30s • 5 Questions',
-    description:
-      'Family Feud / Mogul Money speed round: 30s timer, masked live slots, PASS skips, and 2-column flip reveals (+20/+10/0).',
-    accent: 'gold',
+    name: 'Dinero Rápido',
+    shortName: 'Dinero Rápido',
+    subtitle: '30s · 5 Preguntas',
+    description: 'Ronda relámpago de 30s con respuestas ocultas, botón PASO y revelación.',
     status: 'active',
     HostComponent: FastMoneyHost,
     DisplayComponent: FastMoneyDisplay,
   },
   {
     id: CONFIDENCE_AUCTION_MODULE_ID,
-    name: 'Confidence Auction',
-    shortName: 'Confidence Auction',
-    subtitle: 'Subasta de Confianza',
-    description:
-      'Outbid rival pairs on a category, then race a 30-second clock while a live progress bar fills with every +1 Hit.',
-    accent: 'emerald',
+    name: 'Subasta de Confianza',
+    shortName: 'Subasta de Confianza',
+    subtitle: 'Apuesta y 30s',
+    description: 'Subasta cuántas respuestas logras en 30 segundos y completa la barra.',
     status: 'active',
     HostComponent: ConfidenceAuctionHost,
     DisplayComponent: ConfidenceAuctionDisplay,
   },
   {
     id: MENTAL_SYNC_MODULE_ID,
-    name: 'Mental Sync',
-    shortName: 'Mental Sync',
-    subtitle: 'Sincronía Mental',
-    description:
-      'Bold centered prompts, optional 15s clock & whiteboard reveals, plus dramatic SYNCED! (+15) / NO MATCH overlays.',
-    accent: 'cyan',
+    name: 'Sincronía Mental',
+    shortName: 'Sincronía Mental',
+    subtitle: 'Telepatía',
+    description: 'Frases en pantalla, reloj opcional de 15s y avisos de sincronía.',
     status: 'active',
     HostComponent: MentalSyncHost,
     DisplayComponent: MentalSyncDisplay,
   },
   {
     id: POLYGRAPH_MODULE_ID,
-    name: 'The Polygraph',
-    shortName: 'The Polygraph',
-    subtitle: 'Truth or Lie',
-    description:
-      '60-second interrogation timer, secret Truth/Lie dossier, friend guess lock-in, and high-impact animated stamp reveal.',
-    accent: 'rose',
+    name: 'El Polígrafo',
+    shortName: 'El Polígrafo',
+    subtitle: 'Verdad o Mentira',
+    description: 'Interrogatorio de 60 segundos y sello animado de Verdad o Mentira.',
     status: 'active',
     HostComponent: PolygraphHost,
     DisplayComponent: PolygraphDisplay,
   },
   {
     id: 'rapid-stage',
-    name: 'Rapid Stage — Freeform Prompts',
-    shortName: 'Rapid Stage',
-    subtitle: 'Bonus Q&A Board',
-    description:
-      'General-purpose Q&A stage board for warm-ups, tiebreakers, and custom bonus questions.',
-    accent: 'cyan',
+    name: 'Escenario Rápido',
+    shortName: 'Escenario Rápido',
+    subtitle: 'Preguntas Libres',
+    description: 'Tablero de preguntas abiertas y revelaciones para rondas extra.',
     status: 'active',
     HostComponent: RapidStageHost,
     DisplayComponent: RapidStageDisplay,

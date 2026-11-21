@@ -13,8 +13,15 @@ interface StudioBackdropProps {
 }
 
 export function StudioBackdrop({ children }: StudioBackdropProps) {
-  const { connectedHosts, audioMuted, soundEnabled, setSoundEnabled, notifyAudioUnlocked, t } =
-    useShow();
+  const {
+    connectedHosts,
+    audioMuted,
+    soundEnabled,
+    setSoundEnabled,
+    notifyAudioUnlocked,
+    resumeDisplayMusic,
+    t,
+  } = useShow();
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(false);
   const [audioUnlocked, setAudioUnlocked] = useState<boolean>(() => isAudioUnlocked());
@@ -45,7 +52,7 @@ export function StudioBackdrop({ children }: StudioBackdropProps) {
         await document.exitFullscreen();
       }
     } catch {
-      // Browser may require direct click gesture
+      // Requiere interacción directa del usuario
     }
   }, []);
 
@@ -55,6 +62,7 @@ export function StudioBackdrop({ children }: StudioBackdropProps) {
       setAudioUnlocked(true);
       setSoundEnabled(true);
       notifyAudioUnlocked();
+      resumeDisplayMusic();
       if (!audioMuted) {
         playBroadcastCue('switch');
       }
@@ -63,10 +71,10 @@ export function StudioBackdrop({ children }: StudioBackdropProps) {
       try {
         await document.documentElement.requestFullscreen();
       } catch {
-        // Ignore if fullscreen is unavailable
+        // Ignorar si pantalla completa no está disponible
       }
     }
-  }, [audioMuted, notifyAudioUnlocked, setSoundEnabled]);
+  }, [audioMuted, notifyAudioUnlocked, resumeDisplayMusic, setSoundEnabled]);
 
   useEffect(() => {
     let hideTimer: number | null = null;
@@ -107,85 +115,67 @@ export function StudioBackdrop({ children }: StudioBackdropProps) {
   const effectiveMuted = audioMuted || !soundEnabled;
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden select-none studio-stage-glow text-white">
-      {/* Subtle Studio Grid */}
-      <div className="pointer-events-none absolute inset-0 studio-grid-bg opacity-65" />
+    <div className="relative h-screen w-screen overflow-hidden select-none bg-canvas text-ink transition-colors duration-300">
+      {/* Subtle 2px Editorial Top Accent Hairline */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-[3px] bg-accent" />
 
-      {/* Ambient Animated Studio Spotlights */}
-      <div className="pointer-events-none absolute -top-40 left-1/2 h-[38rem] w-[72rem] -translate-x-1/2 rounded-full bg-cyan-500/15 blur-[130px] animate-spotlight" />
-      <div className="pointer-events-none absolute -bottom-44 -left-24 h-[30rem] w-[42rem] rounded-full bg-amber-500/14 blur-[130px]" />
-      <div className="pointer-events-none absolute -bottom-44 -right-24 h-[30rem] w-[42rem] rounded-full bg-indigo-500/18 blur-[130px]" />
-
-      {/* Crisp Top & Bottom Broadcast Trim Lines */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-transparent via-cyan-400/80 to-transparent" />
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[3px] bg-gradient-to-r from-transparent via-amber-400/70 to-transparent" />
-
-      {/* Main Content Stage */}
+      {/* Main Clutter-Free Content Stage */}
       <div className="relative z-10 h-full w-full">{children}</div>
 
-      {/* One-Click "Enable Audio & Fullscreen" Prompt (Satisfies Browser Autoplay Policy) */}
+      {/* Clean One-Click "Enable Audio & Fullscreen" Button (Autoplay Policy) */}
       {!audioUnlocked && (
         <div className="fixed bottom-6 right-6 z-50">
           <button
             type="button"
             onClick={handleEnableAudioAndFullscreen}
-            className="group flex items-center gap-3 rounded-2xl border-2 border-amber-300/85 bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 px-5 py-3 text-sm font-black text-studio-950 shadow-[0_0_35px_rgba(255,201,51,0.45)] transition hover:scale-[1.03] hover:brightness-110 active:scale-[0.98]"
+            className="flex items-center gap-3 rounded-2xl border border-line-strong bg-ink px-5 py-3 text-left text-canvas shadow-lg transition hover:opacity-90 active:scale-[0.98]"
           >
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-studio-950/15">
-              <Volume2 className="h-5 w-5 stroke-[2.5]" />
+            <Volume2 className="h-5 w-5 shrink-0" />
+            <span className="leading-tight">
+              <span className="block text-sm font-bold">{t.backdrop.enableAudioFullscreen}</span>
+              <span className="block text-[11px] opacity-75">{t.backdrop.enableAudioSub}</span>
             </span>
-            <span className="text-left leading-tight">
-              <span className="block font-display text-xl tracking-wide uppercase">
-                {t.backdrop.enableAudioFullscreen}
-              </span>
-              <span className="block font-mono text-[10px] font-bold opacity-80">
-                {t.backdrop.enableAudioSub}
-              </span>
-            </span>
-            <Maximize2 className="h-4 w-4 stroke-[2.5] transition group-hover:scale-110" />
+            <Maximize2 className="h-4 w-4 shrink-0 opacity-80" />
           </button>
         </div>
       )}
 
-      {/* Hover-Only Discreet Audience Screen Controls (Zero Clutter When Idle) */}
+      {/* Discreet Hover-Only Controls */}
       {audioUnlocked && (
         <div
-          className={`fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full border border-white/15 bg-studio-950/85 px-3 py-1.5 backdrop-blur-md transition-opacity duration-300 ${
+          className={`fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full border border-line bg-surface/95 px-3 py-1.5 backdrop-blur-md transition-opacity duration-300 ${
             controlsVisible ? 'opacity-100' : 'pointer-events-none opacity-0'
           }`}
         >
           <span
             className={`flex items-center gap-1.5 text-xs font-semibold ${
-              connectedHosts > 0 ? 'text-cyan-300' : 'text-amber-300'
+              connectedHosts > 0 ? 'text-ok' : 'text-ink-muted'
             }`}
-            title={connectedHosts > 0 ? 'Connected to Host Control Panel' : 'Synced via Local Storage'}
           >
             {connectedHosts > 0 ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
             {connectedHosts > 0 ? t.backdrop.hostLive : t.backdrop.standby}
           </span>
 
-          <div className="h-3.5 w-px bg-white/15" />
+          <div className="h-3.5 w-px bg-line" />
 
           <button
             type="button"
             onClick={() => setSoundEnabled(!soundEnabled)}
-            className="flex items-center gap-1 rounded-full px-2 py-1 text-xs font-bold text-slate-200 transition hover:bg-white/10 hover:text-white"
+            className="flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold text-ink transition hover:bg-surface-2"
           >
             {effectiveMuted ? (
-              <VolumeX className="h-4 w-4 text-rose-400" />
+              <VolumeX className="h-3.5 w-3.5 text-err" />
             ) : (
-              <Volume2 className="h-4 w-4 text-emerald-300" />
+              <Volume2 className="h-3.5 w-3.5 text-ok" />
             )}
-            {audioMuted && (
-              <span className="font-mono text-[10px] text-rose-300">{t.backdrop.hostMuted}</span>
-            )}
+            {audioMuted && <span className="font-mono text-[10px] text-err">{t.backdrop.hostMuted}</span>}
           </button>
 
           <button
             type="button"
             onClick={toggleFullscreen}
-            className="flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-xs font-semibold text-white transition hover:bg-cyan-400/25"
-            title="Fullscreen (F)"
+            className="flex items-center gap-1.5 rounded-full border border-line bg-canvas px-2.5 py-1 text-xs font-semibold text-ink transition hover:border-line-strong"
+            title="Pantalla completa (F)"
           >
             {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
             <span>{isFullscreen ? t.backdrop.exitFullscreen : t.backdrop.fullscreen}</span>

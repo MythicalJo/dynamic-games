@@ -41,12 +41,12 @@ export function usePolygraph() {
   }, [activeStatement?.teamId, fallbackTeamId, state.teams]);
 
   const speakerName = useMemo(() => {
-    if (!activeTeam) return activeStatement?.speakerSlot === 'B' ? 'Player B' : 'Player A';
+    if (!activeTeam) return activeStatement?.speakerSlot === 'B' ? 'Jugador B' : 'Jugador A';
     return activeStatement?.speakerSlot === 'B' ? activeTeam.playerB : activeTeam.playerA;
   }, [activeStatement?.speakerSlot, activeTeam]);
 
   const interrogatorName = useMemo(() => {
-    if (!activeTeam) return activeStatement?.speakerSlot === 'B' ? 'Player A' : 'Player B';
+    if (!activeTeam) return activeStatement?.speakerSlot === 'B' ? 'Jugador A' : 'Jugador B';
     return activeStatement?.speakerSlot === 'B' ? activeTeam.playerA : activeTeam.playerB;
   }, [activeStatement?.speakerSlot, activeTeam]);
 

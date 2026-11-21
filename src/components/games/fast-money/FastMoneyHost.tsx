@@ -1,57 +1,67 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   ArrowRight,
-  CheckCircle2,
-  Clock,
+  BookOpen,
+  Check,
   Eye,
   EyeOff,
   FastForward,
-  Flame,
   Pause,
   Play,
   Plus,
   RotateCcw,
-  Settings2,
-  Sparkles,
+  Shuffle,
   Trophy,
   Users,
-  XCircle,
-  Zap,
+  X,
 } from 'lucide-react';
 import { useShow } from '../../../context/ShowContext';
-import { TEAM_ACCENTS } from '../../../types/show';
+import {
+  FAST_MONEY_QUESTION_BANK,
+  type FastMoneyCategory,
+} from '../../../lib/spanishBank';
+import type { GameHostProps } from '../../../modules/registry';
+import type { FastMoneyStage } from '../../../types/fastMoney';
 import { useFastMoney } from './useFastMoney';
-
-type HostSubView = 'setup' | 'live' | 'reveal';
 
 function formatClock(ms: number): string {
   const safe = Math.max(0, ms);
-  if (safe < 10000 && safe > 0) {
-    return (safe / 1000).toFixed(1);
-  }
+  if (safe < 10000 && safe > 0) return (safe / 1000).toFixed(1);
   return String(Math.ceil(safe / 1000)).padStart(2, '0');
 }
 
-export function FastMoneyHost() {
-  const { state, setDisplayMode, t } = useShow();
+const CATEGORIES: ('Todas' | FastMoneyCategory)[] = [
+  'Todas',
+  'Comida',
+  'Hábitos',
+  'Anécdotas',
+  'Gustos',
+  'Personalidad',
+  'Hipotéticas',
+];
+
+export function FastMoneyHost({ mode }: GameHostProps) {
+  const { state, triggerCue, t } = useShow();
   const {
     fmState,
+    stage,
     selectedTeam,
     activeSession,
     activeRoundState,
     remainingMs,
     round1Total,
     round2Total,
-    activeRoundTotal,
     combinedTotal,
+    round1AnsweredCount,
+    round2AnsweredCount,
+    isFinalRevealComplete,
     guessingPlayerName,
     secretOwnerName,
     getActualAnswerForRound,
     selectTeam,
     updateQuestionItem,
-    loadSampleQuestions,
-    setActiveRound,
-    setPhase,
+    loadRandomFiveQuestions,
+    setStage,
     startTimer,
     pauseTimer,
     resetTimer,
@@ -63,32 +73,20 @@ export function FastMoneyHost() {
     toggleRevealActual,
     scoreSlot,
     resetCurrentRound,
+    resetTeamSession,
   } = useFastMoney();
 
-  const [subView, setSubView] = useState<HostSubView>(() =>
-    fmState.phase === 'reveal' ? 'reveal' : 'live'
-  );
   const [maskSecrets, setMaskSecrets] = useState(false);
   const [confirmResetRound, setConfirmResetRound] = useState(false);
-  const prevPhaseRef = useRef(fmState.phase);
-
-  useEffect(() => {
-    if (fmState.phase !== prevPhaseRef.current) {
-      prevPhaseRef.current = fmState.phase;
-      setSubView(fmState.phase === 'reveal' ? 'reveal' : 'live');
-    }
-  }, [fmState.phase]);
+  const [showBankBrowser, setShowBankBrowser] = useState(false);
+  const [selectedBankCat, setSelectedBankCat] = useState<'Todas' | FastMoneyCategory>('Todas');
+  const [targetSlotForPick, setTargetSlotForPick] = useState<number>(0);
 
   const liveInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  const handleSwitchSubView = (view: HostSubView) => {
-    setSubView(view);
-    if (view === 'live' && fmState.phase !== 'play') {
-      setPhase('play');
-    } else if (view === 'reveal' && fmState.phase !== 'reveal') {
-      setPhase('reveal');
-    }
-  };
+  useEffect(() => {
+    setConfirmResetRound(false);
+  }, [stage]);
 
   const focusSlotInput = (index: number) => {
     window.setTimeout(() => {
@@ -100,581 +98,562 @@ export function FastMoneyHost() {
     }, 15);
   };
 
-  const answeredCount = activeRoundState.slots.filter((s) => s.status === 'answered').length;
-  const passedCount = activeRoundState.slots.filter((s) => s.status === 'passed').length;
-  const remainingSec = remainingMs / 1000;
-  const timerUrgent = remainingMs > 0 && remainingSec <= 5;
-  const timerWarn = remainingMs > 0 && remainingSec <= 10 && !timerUrgent;
-
   if (!selectedTeam) {
     return (
-      <div className="rounded-2xl border border-dashed border-amber-400/40 bg-studio-900/80 p-8 text-center">
-        <Users className="mx-auto mb-3 h-10 w-10 text-amber-400/70" />
-        <h3 className="font-display text-2xl font-extrabold text-white uppercase">
-          {t.fastMoney.needTeamTitle}
-        </h3>
-        <p className="mt-1 text-sm text-slate-400">{t.fastMoney.needTeamDesc}</p>
+      <div className="rounded-2xl border border-dashed border-line-strong bg-surface p-8 text-center">
+        <Users className="mx-auto mb-3 h-8 w-8 text-ink-subtle" />
+        <h3 className="text-lg font-bold text-ink">{t.fastMoney.needTeamTitle}</h3>
+        <p className="mt-1 text-xs text-ink-muted">{t.fastMoney.needTeamDesc}</p>
       </div>
     );
   }
 
-  const teamAccent = TEAM_ACCENTS[selectedTeam.accent];
+  /* ===================================================================== */
+  /* SETUP MODE: 5 Preguntas + Respuestas Secretas + Banco de 40 preguntas */
+  /* ===================================================================== */
+  if (mode === 'setup') {
+    const filteredBank =
+      selectedBankCat === 'Todas'
+        ? FAST_MONEY_QUESTION_BANK
+        : FAST_MONEY_QUESTION_BANK.filter((q) => q.category === selectedBankCat);
 
-  return (
-    <div className="space-y-5">
-      {/* Top Command Header */}
-      <section className="rounded-2xl border border-amber-400/35 bg-gradient-to-br from-amber-500/12 via-studio-900 to-studio-900 p-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-start gap-3.5">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-amber-400/50 bg-amber-400/15 glow-gold">
-              <Flame className="h-6 w-6 text-amber-300" />
-            </div>
+    const remainingFreshCount = Math.max(
+      0,
+      FAST_MONEY_QUESTION_BANK.length -
+        new Set(fmState.recentQuestions).size
+    );
+
+    return (
+      <div className="space-y-5">
+        <section className="rounded-2xl border border-line bg-surface p-6">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="font-display text-3xl font-black tracking-wide text-gradient-gold uppercase leading-none">
-                  {t.fastMoney.title}
-                </h2>
-                <span className="rounded-md border border-cyan-400/35 bg-cyan-400/15 px-2 py-0.5 font-mono text-[10px] font-bold tracking-widest text-cyan-200 uppercase">
-                  {fmState.phase === 'play'
-                    ? t.fastMoney.liveModeBadge
-                    : t.fastMoney.revealModeBadge}
-                </span>
-              </div>
-              <p className="mt-1 text-xs text-slate-300">{t.fastMoney.subtitle}</p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="min-w-[210px]">
-              <label className="mb-1 block font-mono text-[10px] font-bold tracking-widest text-slate-400 uppercase">
-                {t.fastMoney.playingTeam}
-              </label>
-              <select
-                value={selectedTeam.id}
-                onChange={(e) => selectTeam(e.target.value)}
-                className="w-full rounded-xl border border-white/15 bg-studio-950 px-3 py-2 text-sm font-bold text-white outline-none focus:border-amber-400"
-              >
-                {state.teams.map((teamItem) => (
-                  <option key={teamItem.id} value={teamItem.id}>
-                    {teamItem.name} ({teamItem.playerA} &amp; {teamItem.playerB})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className={`rounded-xl border ${teamAccent.border} bg-studio-950/90 px-4 py-2 text-right`}>
-              <div className="font-mono text-[10px] font-bold tracking-widest text-slate-400 uppercase">
-                {t.common.globalScore}
-              </div>
-              <div className="font-mono text-2xl font-extrabold text-amber-300 tabular-nums leading-tight">
-                {selectedTeam.score.toLocaleString()}
-              </div>
-            </div>
-
-            {state.displayMode !== 'game' && (
-              <button
-                type="button"
-                onClick={() => setDisplayMode('game')}
-                className="rounded-xl bg-cyan-400 px-3.5 py-2.5 text-xs font-extrabold text-studio-950 transition hover:brightness-110"
-              >
-                {t.common.pushToDisplay}
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Workflow Step Tabs */}
-        <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-3">
-          <button
-            type="button"
-            onClick={() => handleSwitchSubView('setup')}
-            className={`flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-extrabold transition ${
-              subView === 'setup'
-                ? 'border-cyan-400/70 bg-cyan-400/20 text-cyan-100 glow-cyan'
-                : 'border-white/10 bg-studio-950/65 text-slate-300 hover:border-white/25 hover:text-white'
-            }`}
-          >
-            <Settings2 className="h-4 w-4" />
-            <span>{t.fastMoney.tabs.setup}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleSwitchSubView('live')}
-            className={`flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-extrabold transition ${
-              subView === 'live'
-                ? 'border-amber-400/80 bg-amber-400/20 text-amber-100 glow-gold'
-                : 'border-white/10 bg-studio-950/65 text-slate-300 hover:border-white/25 hover:text-white'
-            }`}
-          >
-            <Clock className="h-4 w-4" />
-            <span>{t.fastMoney.tabs.live(answeredCount)}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleSwitchSubView('reveal')}
-            className={`flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-extrabold transition ${
-              subView === 'reveal'
-                ? 'border-emerald-400/75 bg-emerald-400/20 text-emerald-100 shadow-[0_0_20px_rgba(52,211,153,0.2)]'
-                : 'border-white/10 bg-studio-950/65 text-slate-300 hover:border-white/25 hover:text-white'
-            }`}
-          >
-            <Trophy className="h-4 w-4" />
-            <span>{t.fastMoney.tabs.reveal(activeRoundTotal)}</span>
-          </button>
-        </div>
-      </section>
-
-      {/* VIEW 1: PRE-GAME SETUP */}
-      {subView === 'setup' && (
-        <section className="rounded-2xl border border-white/10 bg-studio-900/90 p-5">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h3 className="font-display text-2xl font-extrabold tracking-wide text-white uppercase">
+              <h2 className="text-lg font-bold tracking-tight text-ink">
                 {t.fastMoney.setup.heading(selectedTeam.name)}
-              </h3>
-              <p className="text-xs text-slate-400">{t.fastMoney.setup.desc}</p>
+              </h2>
+              <p className="mt-0.5 text-xs text-ink-muted">
+                {t.fastMoney.setup.desc} ({FAST_MONEY_QUESTION_BANK.length} preguntas en el banco ·{' '}
+                {remainingFreshCount} sin usar)
+              </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={selectedTeam.id}
+                onChange={(e) => selectTeam(e.target.value)}
+                className="rounded-xl border border-line bg-canvas px-3 py-2 text-xs font-bold text-ink outline-none focus:border-accent"
+              >
+                {state.teams.map((teamItem) => (
+                  <option key={teamItem.id} value={teamItem.id}>
+                    {teamItem.name} ({teamItem.playerA} y {teamItem.playerB})
+                  </option>
+                ))}
+              </select>
+
+              <button
+                type="button"
+                onClick={loadRandomFiveQuestions}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-accent px-3.5 py-2 text-xs font-bold text-accent-fg transition hover:opacity-90 active:scale-95"
+              >
+                <Shuffle className="h-3.5 w-3.5" />
+                <span>Cargar 5 al azar</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowBankBrowser((v) => !v)}
+                className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition ${
+                  showBankBrowser
+                    ? 'border-ink bg-ink text-canvas'
+                    : 'border-line bg-canvas text-ink hover:border-line-strong'
+                }`}
+              >
+                <BookOpen className="h-3.5 w-3.5" />
+                <span>Banco ({FAST_MONEY_QUESTION_BANK.length})</span>
+              </button>
+
               <button
                 type="button"
                 onClick={() => setMaskSecrets((v) => !v)}
-                className="flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs font-bold text-slate-200 transition hover:bg-white/10"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-canvas px-3 py-2 text-xs font-semibold text-ink-muted hover:text-ink"
               >
                 {maskSecrets ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
                 {maskSecrets ? t.fastMoney.setup.showSecrets : t.fastMoney.setup.hideSecrets}
               </button>
-
-              <button
-                type="button"
-                onClick={loadSampleQuestions}
-                className="flex items-center gap-1.5 rounded-xl border border-cyan-400/40 bg-cyan-400/12 px-3 py-2 text-xs font-bold text-cyan-200 transition hover:bg-cyan-400/20"
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                {t.fastMoney.setup.loadSamples}
-              </button>
             </div>
           </div>
 
+          {/* 5 Preguntas y Respuestas Secretas */}
           <div className="space-y-3">
             {activeSession.questions.map((item, idx) => (
               <div
                 key={idx}
-                className="grid grid-cols-1 gap-3 rounded-2xl border border-white/10 bg-studio-950/75 p-4 lg:grid-cols-12"
+                className="grid grid-cols-1 gap-3 rounded-xl border border-line bg-canvas p-4 lg:grid-cols-12"
               >
                 <div className="lg:col-span-4">
-                  <label className="mb-1 flex items-center gap-1.5 font-mono text-[11px] font-bold text-cyan-300 uppercase">
-                    <span className="inline-flex h-5 w-5 items-center justify-center rounded-md bg-cyan-400/20 text-[11px]">
-                      {idx + 1}
-                    </span>
-                    {t.fastMoney.setup.shortQuestion}
+                  <label className="mb-1 block text-xs font-semibold text-ink-muted">
+                    {idx + 1}. {t.fastMoney.setup.shortQuestion}
                   </label>
                   <input
                     type="text"
                     value={item.question}
                     onChange={(e) => updateQuestionItem(idx, { question: e.target.value })}
-                    className="w-full rounded-xl border border-white/15 bg-studio-900 px-3 py-2 text-sm font-semibold text-white outline-none focus:border-cyan-400"
+                    className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm font-medium text-ink outline-none focus:border-accent"
                   />
                 </div>
 
                 <div className="lg:col-span-4">
-                  <label className="mb-1 block font-mono text-[11px] font-bold text-amber-300 uppercase">
+                  <label className="mb-1 block text-xs font-semibold text-ink-muted">
                     {t.fastMoney.setup.playerASecret(selectedTeam.playerA)}
                   </label>
                   <input
                     type={maskSecrets ? 'password' : 'text'}
                     value={item.playerAAnswer}
                     onChange={(e) => updateQuestionItem(idx, { playerAAnswer: e.target.value })}
-                    className="w-full rounded-xl border border-amber-400/25 bg-studio-900 px-3 py-2 text-sm font-medium text-amber-100 outline-none focus:border-amber-400"
+                    placeholder={`Respuesta real de ${selectedTeam.playerA}...`}
+                    className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-accent"
                   />
                 </div>
 
                 <div className="lg:col-span-4">
-                  <label className="mb-1 block font-mono text-[11px] font-bold text-fuchsia-300 uppercase">
+                  <label className="mb-1 block text-xs font-semibold text-ink-muted">
                     {t.fastMoney.setup.playerBSecret(selectedTeam.playerB)}
                   </label>
                   <input
                     type={maskSecrets ? 'password' : 'text'}
                     value={item.playerBAnswer}
                     onChange={(e) => updateQuestionItem(idx, { playerBAnswer: e.target.value })}
-                    className="w-full rounded-xl border border-fuchsia-400/25 bg-studio-900 px-3 py-2 text-sm font-medium text-fuchsia-100 outline-none focus:border-fuchsia-400"
+                    placeholder={`Respuesta real de ${selectedTeam.playerB}...`}
+                    className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-accent"
                   />
                 </div>
               </div>
             ))}
           </div>
-
-          <div className="mt-5 flex justify-end">
-            <button
-              type="button"
-              onClick={() => handleSwitchSubView('live')}
-              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 px-5 py-2.5 text-sm font-extrabold text-studio-950 shadow-[0_0_20px_rgba(255,201,51,0.3)] transition hover:brightness-110"
-            >
-              <span>{t.fastMoney.setup.readyGoLive}</span>
-              <ArrowRight className="h-4 w-4 stroke-[2.5]" />
-            </button>
-          </div>
         </section>
-      )}
 
-      {/* VIEW 2: LIVE 30S ROUND */}
-      {subView === 'live' && (
-        <div className="space-y-5">
-          <section className="grid grid-cols-1 gap-4 xl:grid-cols-12">
-            <div className="rounded-2xl border border-white/10 bg-studio-900/90 p-5 xl:col-span-6">
-              <div className="mb-3 font-mono text-xs font-bold tracking-wider text-slate-400 uppercase">
-                {t.fastMoney.live.selectRound}
-              </div>
-
-              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={() => setActiveRound(1)}
-                  className={`rounded-xl border p-3.5 text-left transition ${
-                    fmState.activeRound === 1
-                      ? 'border-cyan-400/80 bg-cyan-400/15 glow-cyan'
-                      : 'border-white/10 bg-studio-950/65 hover:border-white/25'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-xs font-extrabold text-cyan-300 uppercase">
-                      {t.fastMoney.live.round(1)}
-                    </span>
-                    <span className="font-mono text-xs font-bold text-amber-300">
-                      {round1Total} {t.common.pts.toLowerCase()}
-                    </span>
-                  </div>
-                  <div className="mt-1 font-display text-xl font-black text-white uppercase">
-                    {t.fastMoney.live.guessesTitle(selectedTeam.playerA)}
-                  </div>
-                  <div className="text-xs text-slate-300">
-                    {t.fastMoney.live.guessingPartner(selectedTeam.playerB)}
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveRound(2)}
-                  className={`rounded-xl border p-3.5 text-left transition ${
-                    fmState.activeRound === 2
-                      ? 'border-amber-400/80 bg-amber-400/15 glow-gold'
-                      : 'border-white/10 bg-studio-950/65 hover:border-white/25'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-xs font-extrabold text-amber-300 uppercase">
-                      {t.fastMoney.live.round(2)}
-                    </span>
-                    <span className="font-mono text-xs font-bold text-amber-300">
-                      {round2Total} {t.common.pts.toLowerCase()}
-                    </span>
-                  </div>
-                  <div className="mt-1 font-display text-xl font-black text-white uppercase">
-                    {t.fastMoney.live.guessesTitle(selectedTeam.playerB)}
-                  </div>
-                  <div className="text-xs text-slate-300">
-                    {t.fastMoney.live.guessingPartner(selectedTeam.playerA)}
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            <div
-              className={`rounded-2xl border p-5 transition xl:col-span-6 ${
-                timerUrgent
-                  ? 'border-rose-500/80 bg-rose-500/15 glow-live'
-                  : timerWarn
-                    ? 'border-amber-400/70 bg-amber-500/12'
-                    : 'border-cyan-400/35 bg-studio-900/90'
-              }`}
-            >
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <div className="font-mono text-xs font-bold tracking-wider text-slate-300 uppercase">
-                    {t.fastMoney.live.clockLabel} (
-                    {fmState.timer.isRunning
-                      ? t.common.running
-                      : remainingMs === 0
-                        ? t.common.timesUp
-                        : t.common.ready}
-                    )
-                  </div>
-                  <div
-                    className={`mt-1 font-mono text-6xl font-black tabular-nums leading-none ${
-                      remainingMs === 0 || timerUrgent
-                        ? 'text-rose-400'
-                        : timerWarn
-                          ? 'text-amber-300'
-                          : 'text-cyan-300'
-                    }`}
-                  >
-                    {formatClock(remainingMs)}
-                    <span className="ml-1 text-xl font-bold text-slate-400">s</span>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  {fmState.timer.isRunning ? (
-                    <button
-                      type="button"
-                      onClick={pauseTimer}
-                      className="flex items-center gap-2 rounded-xl bg-amber-400 px-4 py-3 text-sm font-extrabold text-studio-950 transition hover:brightness-110 active:scale-95"
-                    >
-                      <Pause className="h-4 w-4 fill-current" />
-                      {t.common.pause}
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        startTimer();
-                        focusSlotInput(activeRoundState.activeSlotIndex);
-                      }}
-                      className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-400 px-5 py-3 text-sm font-extrabold text-studio-950 shadow-[0_0_20px_rgba(52,211,153,0.3)] transition hover:brightness-110 active:scale-95"
-                    >
-                      <Play className="h-4 w-4 fill-current" />
-                      {t.fastMoney.live.start30s}
-                    </button>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={addFiveSeconds}
-                    className="flex items-center gap-1 rounded-xl border border-cyan-400/50 bg-cyan-400/15 px-3.5 py-3 font-mono text-sm font-extrabold text-cyan-200 transition hover:bg-cyan-400/25 active:scale-95"
-                  >
-                    <Plus className="h-4 w-4 stroke-[2.5]" />
-                    5s
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={resetTimer}
-                    className="flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/5 px-3.5 py-3 text-xs font-bold text-slate-200 transition hover:bg-white/10"
-                  >
-                    <RotateCcw className="h-4 w-4" />
-                    {t.common.reset}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section className="rounded-2xl border border-white/10 bg-studio-900/90 p-5">
+        {/* Explorador opcional del banco de 40 preguntas */}
+        {showBankBrowser && (
+          <section className="rounded-2xl border border-line bg-surface p-6">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h3 className="font-display text-2xl font-extrabold tracking-wide text-white uppercase">
-                  {t.fastMoney.live.liveAnswersTitle(guessingPlayerName, secretOwnerName)}
+                <h3 className="text-base font-bold text-ink">
+                  Banco de preguntas de Dinero Rápido ({filteredBank.length})
                 </h3>
-                <p className="text-xs text-slate-400">{t.fastMoney.live.liveAnswersDesc}</p>
+                <p className="text-xs text-ink-muted">
+                  Elige una fila destino y haz clic en cualquier pregunta para cargarla.
+                </p>
               </div>
 
-              <div className="flex items-center gap-2 font-mono text-xs font-bold">
-                <span className="rounded-lg border border-emerald-400/35 bg-emerald-400/15 px-2.5 py-1 text-emerald-300">
-                  {t.fastMoney.live.lockedBadge(answeredCount)}
-                </span>
-                {passedCount > 0 && (
-                  <span className="rounded-lg border border-amber-400/35 bg-amber-400/15 px-2.5 py-1 text-amber-300">
-                    {t.fastMoney.live.passedBadge(passedCount)}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              {activeRoundState.slots.map((slot, idx) => {
-                const q = activeSession.questions[idx];
-                const isActive = activeRoundState.activeSlotIndex === idx;
-                const secretRef = getActualAnswerForRound(idx);
-
-                return (
-                  <div
-                    key={idx}
-                    onClick={() => setActiveSlotIndex(idx)}
-                    className={`rounded-2xl border p-3.5 transition ${
-                      isActive
-                        ? 'border-cyan-400/80 bg-cyan-400/10 glow-cyan'
-                        : slot.status === 'answered'
-                          ? 'border-emerald-400/35 bg-emerald-400/5'
-                          : slot.status === 'passed'
-                            ? 'border-amber-400/45 bg-amber-400/8'
-                            : 'border-white/10 bg-studio-950/70'
+              <div className="flex items-center gap-2 text-xs">
+                <span className="font-semibold text-ink-muted">Colocar en fila:</span>
+                {[0, 1, 2, 3, 4].map((slotIdx) => (
+                  <button
+                    key={slotIdx}
+                    type="button"
+                    onClick={() => setTargetSlotForPick(slotIdx)}
+                    className={`h-7 w-7 rounded-lg font-mono text-xs font-bold transition ${
+                      targetSlotForPick === slotIdx
+                        ? 'bg-ink text-canvas'
+                        : 'border border-line bg-canvas text-ink-muted hover:text-ink'
                     }`}
                   >
-                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`inline-flex h-6 w-6 items-center justify-center rounded-lg font-mono text-xs font-extrabold ${
-                            isActive
-                              ? 'bg-cyan-400 text-studio-950'
-                              : slot.status === 'answered'
-                                ? 'bg-emerald-400/25 text-emerald-200'
-                                : slot.status === 'passed'
-                                  ? 'bg-amber-400/25 text-amber-200'
-                                  : 'bg-white/10 text-slate-300'
-                          }`}
-                        >
-                          {idx + 1}
-                        </span>
-                        <span className="text-sm font-bold text-white">
-                          {q?.question || `#${idx + 1}`}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        {secretRef && (
-                          <span className="hidden rounded-md border border-white/10 bg-studio-950/90 px-2 py-0.5 text-[11px] text-slate-400 md:inline-block">
-                            {t.fastMoney.live.secretRef(secretOwnerName)}{' '}
-                            <strong className="text-amber-300/90">{secretRef}</strong>
-                          </span>
-                        )}
-
-                        {slot.status === 'answered' && (
-                          <span className="inline-flex items-center gap-1 rounded-md bg-emerald-400/20 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-300 uppercase">
-                            <CheckCircle2 className="h-3 w-3" /> {t.fastMoney.live.answered}
-                          </span>
-                        )}
-                        {slot.status === 'passed' && (
-                          <span className="inline-flex items-center gap-1 rounded-md bg-amber-400/25 px-2 py-0.5 font-mono text-[10px] font-bold text-amber-200 uppercase">
-                            <FastForward className="h-3 w-3" /> {t.fastMoney.live.passed}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2.5">
-                      <input
-                        ref={(el) => {
-                          liveInputRefs.current[idx] = el;
-                        }}
-                        type="text"
-                        value={slot.guess}
-                        onFocus={() => setActiveSlotIndex(idx)}
-                        onChange={(e) => updateSlotGuess(idx, e.target.value, false)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            const nextIdx = updateSlotGuess(idx, slot.guess, true);
-                            focusSlotInput(nextIdx);
-                          }
-                        }}
-                        placeholder={t.fastMoney.live.typeGuessPlaceholder(guessingPlayerName)}
-                        className="flex-1 rounded-xl border border-white/15 bg-studio-950 px-3.5 py-2.5 text-sm font-bold text-white outline-none transition focus:border-cyan-400"
-                      />
-
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const nextIdx = passSlot(idx);
-                          focusSlotInput(nextIdx);
-                        }}
-                        className="flex shrink-0 items-center gap-1.5 rounded-xl border border-amber-400/50 bg-amber-400/15 px-4 py-2.5 font-mono text-xs font-extrabold text-amber-200 transition hover:bg-amber-400/30 active:scale-95"
-                      >
-                        <FastForward className="h-3.5 w-3.5" />
-                        {t.fastMoney.live.passBtn}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
+                    {slotIdx + 1}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
-              {confirmResetRound ? (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-rose-300">
-                    {t.fastMoney.live.resetRoundConfirm(fmState.activeRound)}
+            <div className="mb-4 flex flex-wrap gap-1.5">
+              {CATEGORIES.map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setSelectedBankCat(cat)}
+                  className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                    selectedBankCat === cat
+                      ? 'border-accent bg-accent text-accent-fg'
+                      : 'border-line bg-canvas text-ink-muted hover:text-ink'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+
+            <div className="grid max-h-72 grid-cols-1 gap-2 overflow-y-auto pr-1 md:grid-cols-2">
+              {filteredBank.map((entry, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => {
+                    updateQuestionItem(targetSlotForPick, { question: entry.question });
+                    setTargetSlotForPick((prev) => (prev + 1) % 5);
+                  }}
+                  className="flex items-start justify-between gap-2 rounded-xl border border-line bg-canvas p-3 text-left transition hover:border-accent"
+                >
+                  <span className="text-xs font-medium text-ink">{entry.question}</span>
+                  <span className="shrink-0 rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-ink-subtle">
+                    {entry.category}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      resetCurrentRound();
-                      setConfirmResetRound(false);
-                    }}
-                    className="rounded-lg bg-rose-500 px-3 py-1.5 text-xs font-extrabold text-white"
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+      </div>
+    );
+  }
+
+  /* ===================================================================== */
+  /* LIVE MODE: Flujo secuencial de 4 Fases claras                         */
+  /* ===================================================================== */
+  const remainingSec = remainingMs / 1000;
+  const isCritical = remainingMs > 0 && remainingSec <= 5;
+  const isWarn = remainingMs > 0 && remainingSec <= 10 && !isCritical;
+
+  const stages: {
+    id: FastMoneyStage;
+    shortTitle: string;
+    detail: string;
+    meta: string;
+  }[] = [
+    {
+      id: 1,
+      shortTitle: '1. Ronda 1',
+      detail: `${selectedTeam.playerA} adivina a ${selectedTeam.playerB}`,
+      meta: `${round1AnsweredCount}/5`,
+    },
+    {
+      id: 2,
+      shortTitle: '2. Ronda 2',
+      detail: `${selectedTeam.playerB} adivina a ${selectedTeam.playerA}`,
+      meta: `${round2AnsweredCount}/5`,
+    },
+    {
+      id: 3,
+      shortTitle: '3. Revelación 1',
+      detail: `${selectedTeam.playerA} sobre ${selectedTeam.playerB}`,
+      meta: `+${round1Total} pts`,
+    },
+    {
+      id: 4,
+      shortTitle: '4. Revelación 2',
+      detail: `${selectedTeam.playerB} sobre ${selectedTeam.playerA}`,
+      meta: `+${round2Total} pts`,
+    },
+  ];
+
+  const currentStageInfo = stages[stage - 1];
+
+  return (
+    <div className="space-y-5">
+      {/* Header + 4-Phase Step Indicator */}
+      <section className="rounded-2xl border border-line bg-surface p-5">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 className="text-lg font-extrabold tracking-tight text-ink">{t.fastMoney.title}</h2>
+            <select
+              value={selectedTeam.id}
+              onChange={(e) => selectTeam(e.target.value)}
+              className="rounded-xl border border-line bg-canvas px-3 py-1.5 text-xs font-bold text-ink outline-none focus:border-accent"
+            >
+              {state.teams.map((teamItem) => (
+                <option key={teamItem.id} value={teamItem.id}>
+                  {teamItem.name} ({teamItem.playerA} y {teamItem.playerB})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <span className="rounded-full border border-line bg-canvas px-3 py-1 font-mono text-xs font-bold text-ink">
+            Combinado: +{combinedTotal} pts
+          </span>
+        </div>
+
+        {/* 4-Phase Sequential Stepper */}
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {stages.map((item) => {
+            const isCurrent = stage === item.id;
+            const isPast = stage > item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setStage(item.id)}
+                className={`flex flex-col justify-between rounded-xl border p-3 text-left transition ${
+                  isCurrent
+                    ? 'border-accent bg-accent text-accent-fg'
+                    : isPast
+                      ? 'border-ok/40 bg-ok-soft text-ink hover:border-ok'
+                      : 'border-line bg-canvas text-ink-muted hover:border-line-strong hover:text-ink'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-xs font-extrabold">{item.shortTitle}</span>
+                  <span
+                    className={`font-mono text-[10px] font-bold ${
+                      isCurrent ? 'opacity-85' : isPast ? 'text-ok' : 'text-ink-subtle'
+                    }`}
                   >
-                    {t.fastMoney.live.yesReset}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setConfirmResetRound(false)}
-                    className="rounded-lg border border-white/15 px-3 py-1.5 text-xs font-bold text-slate-300"
-                  >
-                    {t.common.cancel}
-                  </button>
+                    {item.meta}
+                  </span>
                 </div>
+                <span
+                  className={`mt-1 truncate text-[11px] font-medium ${
+                    isCurrent ? 'opacity-90' : 'text-ink-muted'
+                  }`}
+                >
+                  {item.detail}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* BIG TIMER (Phases 1 & 2 only) */}
+        {(stage === 1 || stage === 2) && (
+          <div
+            className={`mt-5 flex flex-wrap items-center justify-between gap-4 rounded-2xl border p-5 transition-colors ${
+              remainingMs === 0 || isCritical
+                ? 'border-err bg-err-soft'
+                : isWarn
+                  ? 'border-warn bg-warn-soft'
+                  : 'border-line bg-canvas'
+            }`}
+          >
+            <div>
+              <div className="font-mono text-[11px] font-bold tracking-wider text-accent uppercase">
+                Fase {stage} de 4 · {currentStageInfo.detail}
+              </div>
+              <div
+                className={`mt-1 font-mono text-6xl font-extrabold tabular-nums leading-none ${
+                  remainingMs === 0 || isCritical
+                    ? 'text-err'
+                    : isWarn
+                      ? 'text-warn'
+                      : 'text-ink'
+                }`}
+              >
+                {formatClock(remainingMs)}
+                <span className="ml-1 text-lg font-semibold text-ink-subtle">s</span>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {fmState.timer.isRunning ? (
+                <button
+                  type="button"
+                  onClick={pauseTimer}
+                  className="inline-flex items-center gap-2 rounded-xl bg-warn px-5 py-3 text-sm font-bold text-warn-fg transition hover:opacity-90"
+                >
+                  <Pause className="h-4 w-4 fill-current" />
+                  {t.common.pause}
+                </button>
               ) : (
                 <button
                   type="button"
-                  onClick={() => setConfirmResetRound(true)}
-                  className="flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/5 px-3.5 py-2 text-xs font-bold text-slate-300 transition hover:border-rose-400/40 hover:text-rose-200"
+                  onClick={() => {
+                    startTimer();
+                    focusSlotInput(activeRoundState.activeSlotIndex);
+                  }}
+                  className="inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-3 text-sm font-bold text-accent-fg transition hover:opacity-90"
                 >
-                  <RotateCcw className="h-3.5 w-3.5" />
-                  {t.fastMoney.live.resetRoundBtn(fmState.activeRound)}
+                  <Play className="h-4 w-4 fill-current" />
+                  {t.fastMoney.live.start30s}
                 </button>
               )}
 
               <button
                 type="button"
-                onClick={() => handleSwitchSubView('reveal')}
-                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-400 to-cyan-400 px-5 py-2.5 text-sm font-extrabold text-studio-950 shadow-[0_0_24px_rgba(0,229,255,0.28)] transition hover:brightness-110"
+                onClick={addFiveSeconds}
+                className="inline-flex items-center gap-1 rounded-xl border border-line bg-surface px-3.5 py-3 font-mono text-xs font-bold text-ink hover:border-line-strong"
               >
-                <span>{t.fastMoney.live.goToRevealBtn}</span>
-                <ArrowRight className="h-4 w-4 stroke-[2.5]" />
+                <Plus className="h-3.5 w-3.5" />
+                5s
+              </button>
+
+              <button
+                type="button"
+                onClick={resetTimer}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-surface px-3.5 py-3 text-xs font-semibold text-ink-muted hover:text-ink"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                {t.common.reset}
               </button>
             </div>
-          </section>
-        </div>
-      )}
+          </div>
+        )}
+      </section>
 
-      {/* VIEW 3: REVEAL & SCORING */}
-      {subView === 'reveal' && (
-        <section className="rounded-2xl border border-emerald-400/30 bg-studio-900/90 p-5">
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-4">
+      {/* ================================================================= */}
+      {/* PHASES 1 & 2: LIVE 30S GUESSING (NO ANSWERS REVEALED YET)         */}
+      {/* ================================================================= */}
+      {stage === 1 || stage === 2 ? (
+        <section className="rounded-2xl border border-line bg-surface p-5">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-ink-muted">
+              Anota las 5 respuestas de <strong>{guessingPlayerName}</strong> (pulsa Intro para
+              saltar a la siguiente o usa <strong>PASO</strong>). Todavía no se revela nada en
+              pantalla.
+            </p>
+          </div>
+
+          <div className="space-y-2.5">
+            {activeRoundState.slots.map((slot, idx) => {
+              const q = activeSession.questions[idx];
+              const isActive = activeRoundState.activeSlotIndex === idx;
+              const secretRef = getActualAnswerForRound(idx);
+
+              return (
+                <div
+                  key={idx}
+                  onClick={() => setActiveSlotIndex(idx)}
+                  className={`rounded-xl border p-3.5 transition-colors ${
+                    isActive
+                      ? 'border-accent bg-accent-soft'
+                      : slot.status === 'answered'
+                        ? 'border-ok/40 bg-ok-soft'
+                        : slot.status === 'passed'
+                          ? 'border-warn/50 bg-warn-soft'
+                          : 'border-line bg-canvas'
+                  }`}
+                >
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`inline-flex h-6 w-6 items-center justify-center rounded-md font-mono text-xs font-bold ${
+                          isActive
+                            ? 'bg-accent text-accent-fg'
+                            : 'border border-line bg-surface text-ink-muted'
+                        }`}
+                      >
+                        {idx + 1}
+                      </span>
+                      <span className="text-sm font-semibold text-ink">
+                        {q?.question || `Pregunta ${idx + 1}`}
+                      </span>
+                    </div>
+
+                    {secretRef && (
+                      <span className="hidden text-[11px] text-ink-subtle md:inline">
+                        {t.fastMoney.live.secretRef(secretOwnerName)}{' '}
+                        <strong className="text-ink-muted">{secretRef}</strong>
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={(el) => {
+                        liveInputRefs.current[idx] = el;
+                      }}
+                      type="text"
+                      value={slot.guess}
+                      onFocus={() => setActiveSlotIndex(idx)}
+                      onChange={(e) => updateSlotGuess(idx, e.target.value, false)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const nextIdx = updateSlotGuess(idx, slot.guess, true);
+                          focusSlotInput(nextIdx);
+                        }
+                      }}
+                      placeholder={t.fastMoney.live.typeGuessPlaceholder(guessingPlayerName)}
+                      className="flex-1 rounded-xl border border-line bg-canvas px-3.5 py-2.5 text-sm font-semibold text-ink outline-none focus:border-accent"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const nextIdx = passSlot(idx);
+                        focusSlotInput(nextIdx);
+                      }}
+                      className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-warn/45 bg-warn-soft px-3.5 py-2.5 font-mono text-xs font-bold text-warn transition hover:opacity-90 active:scale-95"
+                    >
+                      <FastForward className="h-3.5 w-3.5" />
+                      {t.fastMoney.live.passBtn}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
+            {confirmResetRound ? (
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-err">
+                  {t.fastMoney.live.resetRoundConfirm(fmState.activeRound)}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    resetCurrentRound();
+                    setConfirmResetRound(false);
+                  }}
+                  className="rounded-lg bg-err px-3 py-1.5 text-xs font-bold text-err-fg"
+                >
+                  {t.fastMoney.live.yesReset}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmResetRound(false)}
+                  className="rounded-lg border border-line px-3 py-1.5 text-xs text-ink-muted"
+                >
+                  {t.common.cancel}
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmResetRound(true)}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-canvas px-3 py-2 text-xs font-semibold text-ink-muted hover:text-err"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                {t.fastMoney.live.resetRoundBtn(fmState.activeRound)}
+              </button>
+            )}
+
+            {stage === 1 ? (
+              <button
+                type="button"
+                onClick={() => setStage(2)}
+                className="inline-flex items-center gap-2 rounded-xl bg-ink px-5 py-2.5 text-xs font-bold text-canvas transition hover:opacity-90"
+              >
+                <span>Siguiente: Ronda 2 ({selectedTeam.playerB} adivina)</span>
+                <ArrowRight className="h-3.5 w-3.5" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setStage(3)}
+                className="inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-xs font-bold text-accent-fg transition hover:opacity-90"
+              >
+                <span>Siguiente: Revelación 1 ({selectedTeam.playerA} sobre {selectedTeam.playerB})</span>
+                <ArrowRight className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        </section>
+      ) : (
+        /* ================================================================= */
+        /* PHASES 3 & 4: REVEAL 1 (A sobre B) & REVEAL 2 (B sobre A + TOTAL) */
+        /* ================================================================= */
+        <section className="rounded-2xl border border-line bg-surface p-5">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <div>
-              <h3 className="font-display text-2xl font-extrabold tracking-wide text-white uppercase">
-                {t.fastMoney.reveal.heading(fmState.activeRound)}
+              <h3 className="text-base font-bold text-ink">
+                {stage === 3
+                  ? `Revelación 1: ${selectedTeam.playerA} sobre ${selectedTeam.playerB}`
+                  : `Revelación 2: ${selectedTeam.playerB} sobre ${selectedTeam.playerA}`}
               </h3>
-              <p className="text-xs text-slate-400">{t.fastMoney.reveal.desc}</p>
+              <p className="text-xs text-ink-muted">{t.fastMoney.reveal.desc}</p>
             </div>
-
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex rounded-xl border border-white/15 bg-studio-950 p-1">
-                <button
-                  type="button"
-                  onClick={() => setActiveRound(1)}
-                  className={`rounded-lg px-3 py-1.5 font-mono text-xs font-extrabold transition ${
-                    fmState.activeRound === 1
-                      ? 'bg-cyan-400 text-studio-950'
-                      : 'text-slate-300 hover:text-white'
-                  }`}
-                >
-                  {t.fastMoney.live.round(1)} ({round1Total})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveRound(2)}
-                  className={`rounded-lg px-3 py-1.5 font-mono text-xs font-extrabold transition ${
-                    fmState.activeRound === 2
-                      ? 'bg-amber-400 text-studio-950'
-                      : 'text-slate-300 hover:text-white'
-                  }`}
-                >
-                  {t.fastMoney.live.round(2)} ({round2Total})
-                </button>
-              </div>
-
-              <div className="rounded-xl border border-amber-400/40 bg-amber-400/12 px-4 py-1.5 text-right">
-                <div className="font-mono text-[10px] font-bold tracking-widest text-amber-200/80 uppercase">
-                  {t.fastMoney.reveal.r1r2Total}
-                </div>
-                <div className="font-mono text-xl font-black text-amber-300 tabular-nums leading-tight">
-                  {combinedTotal} {t.common.pts.toLowerCase()}
-                </div>
-              </div>
-            </div>
+            <span className="rounded-full border border-line bg-canvas px-3 py-1 font-mono text-xs font-bold text-ink">
+              R1: +{round1Total} · R2: +{round2Total} · Total: +{combinedTotal} pts
+            </span>
           </div>
 
           <div className="space-y-3">
@@ -683,31 +662,18 @@ export function FastMoneyHost() {
               const actualAnswer = getActualAnswerForRound(idx);
 
               return (
-                <div
-                  key={idx}
-                  className="rounded-2xl border border-white/12 bg-studio-950/75 p-4"
-                >
+                <div key={idx} className="rounded-xl border border-line bg-canvas p-4">
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-white/10 font-mono text-xs font-extrabold text-cyan-300">
+                      <span className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-line bg-surface font-mono text-xs font-bold text-ink-muted">
                         {idx + 1}
                       </span>
-                      <span className="text-sm font-bold text-slate-200">
-                        {q?.question || `#${idx + 1}`}
+                      <span className="text-sm font-semibold text-ink">
+                        {q?.question || `Pregunta ${idx + 1}`}
                       </span>
                     </div>
 
-                    <span
-                      className={`rounded-md px-2.5 py-0.5 font-mono text-xs font-extrabold ${
-                        slot.rating === 'exact'
-                          ? 'bg-amber-400/25 text-amber-200'
-                          : slot.rating === 'close'
-                            ? 'bg-cyan-400/25 text-cyan-200'
-                            : slot.rating === 'miss'
-                              ? 'bg-rose-500/25 text-rose-200'
-                              : 'bg-white/5 text-slate-500'
-                      }`}
-                    >
+                    <span className="font-mono text-[11px] font-bold text-ink-subtle">
                       {slot.rating === 'exact' && t.fastMoney.reveal.exactBadge}
                       {slot.rating === 'close' && t.fastMoney.reveal.closeBadge}
                       {slot.rating === 'miss' && t.fastMoney.reveal.missBadge}
@@ -715,17 +681,15 @@ export function FastMoneyHost() {
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
-                    <div className="flex flex-col justify-between rounded-xl border border-cyan-400/25 bg-studio-900/90 p-3 lg:col-span-4">
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-12">
+                    <div className="flex flex-col justify-between rounded-xl border border-line bg-surface p-3 md:col-span-4">
                       <div>
-                        <div className="font-mono text-[10px] font-bold tracking-wider text-cyan-300 uppercase">
+                        <div className="text-[11px] font-semibold text-ink-subtle">
                           {t.fastMoney.reveal.playerGuessLabel(guessingPlayerName)}
                         </div>
-                        <div className="mt-1 text-base font-extrabold text-white">
-                          {slot.guess.trim() ? (
-                            slot.guess
-                          ) : (
-                            <span className="text-amber-300/80 italic">
+                        <div className="mt-0.5 text-sm font-bold text-ink">
+                          {slot.guess.trim() || (
+                            <span className="font-normal text-ink-subtle italic">
                               {slot.status === 'passed'
                                 ? t.fastMoney.live.passBtn
                                 : t.fastMoney.reveal.noAnswer}
@@ -736,10 +700,10 @@ export function FastMoneyHost() {
                       <button
                         type="button"
                         onClick={() => toggleRevealGuess(idx)}
-                        className={`mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-extrabold transition ${
+                        className={`mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition ${
                           slot.guessRevealed
-                            ? 'border-cyan-400 bg-cyan-400 text-studio-950'
-                            : 'border-cyan-400/50 bg-cyan-400/12 text-cyan-200 hover:bg-cyan-400/25'
+                            ? 'border-ink bg-ink text-canvas'
+                            : 'border-line bg-canvas text-ink hover:border-line-strong'
                         }`}
                       >
                         {slot.guessRevealed ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
@@ -749,14 +713,14 @@ export function FastMoneyHost() {
                       </button>
                     </div>
 
-                    <div className="flex flex-col justify-between rounded-xl border border-amber-400/25 bg-studio-900/90 p-3 lg:col-span-4">
+                    <div className="flex flex-col justify-between rounded-xl border border-line bg-surface p-3 md:col-span-4">
                       <div>
-                        <div className="font-mono text-[10px] font-bold tracking-wider text-amber-300 uppercase">
+                        <div className="text-[11px] font-semibold text-ink-subtle">
                           {t.fastMoney.reveal.actualAnswerLabel(secretOwnerName)}
                         </div>
-                        <div className="mt-1 text-base font-extrabold text-amber-100">
+                        <div className="mt-0.5 text-sm font-bold text-ink">
                           {actualAnswer.trim() || (
-                            <span className="text-slate-500 italic">
+                            <span className="font-normal text-ink-subtle italic">
                               {t.fastMoney.reveal.notPrefilled}
                             </span>
                           )}
@@ -765,10 +729,10 @@ export function FastMoneyHost() {
                       <button
                         type="button"
                         onClick={() => toggleRevealActual(idx)}
-                        className={`mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-extrabold transition ${
+                        className={`mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition ${
                           slot.actualRevealed
-                            ? 'border-amber-400 bg-amber-400 text-studio-950'
-                            : 'border-amber-400/50 bg-amber-400/12 text-amber-200 hover:bg-amber-400/25'
+                            ? 'border-accent bg-accent text-accent-fg'
+                            : 'border-line bg-canvas text-ink hover:border-line-strong'
                         }`}
                       >
                         {slot.actualRevealed ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
@@ -778,23 +742,22 @@ export function FastMoneyHost() {
                       </button>
                     </div>
 
-                    <div className="flex flex-col justify-between rounded-xl border border-white/10 bg-studio-900/90 p-3 lg:col-span-4">
-                      <div className="font-mono text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+                    <div className="flex flex-col justify-between rounded-xl border border-line bg-surface p-3 md:col-span-4">
+                      <div className="text-[11px] font-semibold text-ink-subtle">
                         {t.fastMoney.reveal.awardRowScore}
                       </div>
                       <div className="mt-2 grid grid-cols-3 gap-1.5">
                         <button
                           type="button"
                           onClick={() => scoreSlot(idx, 'exact')}
-                          className={`flex flex-col items-center justify-center rounded-xl border px-2 py-2.5 text-center transition active:scale-95 ${
+                          className={`flex flex-col items-center rounded-lg border py-2 transition active:scale-95 ${
                             slot.rating === 'exact'
-                              ? 'border-amber-300 bg-gradient-to-b from-amber-300 to-amber-500 text-studio-950 shadow-[0_0_16px_rgba(255,201,51,0.45)]'
-                              : 'border-amber-400/35 bg-amber-400/10 text-amber-200 hover:bg-amber-400/25'
+                              ? 'border-ok bg-ok text-ok-fg'
+                              : 'border-line bg-canvas text-ink hover:border-ok'
                           }`}
                         >
-                          <Zap className="mb-0.5 h-4 w-4" />
-                          <span className="font-mono text-xs font-black">+20</span>
-                          <span className="text-[10px] font-bold leading-tight">
+                          <span className="font-mono text-xs font-extrabold">+20</span>
+                          <span className="text-[10px] font-semibold">
                             {t.fastMoney.reveal.exactLabel}
                           </span>
                         </button>
@@ -802,15 +765,14 @@ export function FastMoneyHost() {
                         <button
                           type="button"
                           onClick={() => scoreSlot(idx, 'close')}
-                          className={`flex flex-col items-center justify-center rounded-xl border px-2 py-2.5 text-center transition active:scale-95 ${
+                          className={`flex flex-col items-center rounded-lg border py-2 transition active:scale-95 ${
                             slot.rating === 'close'
-                              ? 'border-cyan-300 bg-gradient-to-b from-cyan-300 to-sky-500 text-studio-950 shadow-[0_0_16px_rgba(0,229,255,0.4)]'
-                              : 'border-cyan-400/35 bg-cyan-400/10 text-cyan-200 hover:bg-cyan-400/25'
+                              ? 'border-accent bg-accent text-accent-fg'
+                              : 'border-line bg-canvas text-ink hover:border-accent'
                           }`}
                         >
-                          <CheckCircle2 className="mb-0.5 h-4 w-4" />
-                          <span className="font-mono text-xs font-black">+10</span>
-                          <span className="text-[10px] font-bold leading-tight">
+                          <span className="font-mono text-xs font-extrabold">+10</span>
+                          <span className="text-[10px] font-semibold">
                             {t.fastMoney.reveal.closeLabel}
                           </span>
                         </button>
@@ -818,15 +780,16 @@ export function FastMoneyHost() {
                         <button
                           type="button"
                           onClick={() => scoreSlot(idx, 'miss')}
-                          className={`flex flex-col items-center justify-center rounded-xl border px-2 py-2.5 text-center transition active:scale-95 ${
+                          className={`flex flex-col items-center rounded-lg border py-2 transition active:scale-95 ${
                             slot.rating === 'miss'
-                              ? 'border-rose-400 bg-rose-500 text-white shadow-[0_0_16px_rgba(244,63,94,0.45)]'
-                              : 'border-rose-400/35 bg-rose-500/10 text-rose-200 hover:bg-rose-500/25'
+                              ? 'border-err bg-err text-err-fg'
+                              : 'border-line bg-canvas text-ink-muted hover:border-err hover:text-err'
                           }`}
                         >
-                          <XCircle className="mb-0.5 h-4 w-4" />
-                          <span className="font-mono text-xs font-black">0</span>
-                          <span className="text-[10px] font-bold leading-tight">
+                          <span className="flex items-center font-mono text-xs font-extrabold">
+                            <X className="h-3 w-3" />0
+                          </span>
+                          <span className="text-[10px] font-semibold">
                             {t.fastMoney.reveal.missLabel}
                           </span>
                         </button>
@@ -838,27 +801,78 @@ export function FastMoneyHost() {
             })}
           </div>
 
-          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
-            <button
-              type="button"
-              onClick={() => handleSwitchSubView('live')}
-              className="rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-xs font-bold text-slate-200 transition hover:bg-white/10"
+          {/* Final Combined Score Summary Box on Phase 4 */}
+          {stage === 4 && (
+            <div
+              className={`mt-5 flex flex-wrap items-center justify-between gap-4 rounded-2xl border p-4 ${
+                isFinalRevealComplete
+                  ? 'border-ok bg-ok-soft'
+                  : 'border-line bg-canvas'
+              }`}
             >
-              {t.fastMoney.reveal.backToLive}
-            </button>
+              <div>
+                <div className="font-mono text-[11px] font-bold tracking-wider text-ink-muted uppercase">
+                  Resultado final combinado · {selectedTeam.name}
+                </div>
+                <div className="mt-1 text-lg font-extrabold text-ink">
+                  Ronda 1 (+{round1Total}) + Ronda 2 (+{round2Total}) ={' '}
+                  <span className="text-accent">+{combinedTotal} pts</span>
+                </div>
+              </div>
 
-            {fmState.activeRound === 1 && (
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveRound(2);
-                  handleSwitchSubView('live');
-                }}
-                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 px-5 py-2.5 text-sm font-extrabold text-studio-950 shadow-[0_0_20px_rgba(255,201,51,0.3)] transition hover:brightness-110"
-              >
-                <span>{t.fastMoney.reveal.startRound2(selectedTeam.playerB)}</span>
-                <ArrowRight className="h-4 w-4 stroke-[2.5]" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => triggerCue('fanfare')}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-accent px-4 py-2 text-xs font-bold text-accent-fg hover:opacity-90"
+                >
+                  <Trophy className="h-4 w-4" />
+                  Tocar fanfarria
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Phase Footer Navigation */}
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
+            {stage === 3 ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setStage(2)}
+                  className="rounded-xl border border-line bg-canvas px-4 py-2 text-xs font-semibold text-ink hover:border-line-strong"
+                >
+                  ← Volver a Ronda 2
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStage(4)}
+                  className="inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-xs font-bold text-accent-fg transition hover:opacity-90"
+                >
+                  <Check className="h-4 w-4" />
+                  <span>
+                    Siguiente: Revelación 2 ({selectedTeam.playerB} sobre {selectedTeam.playerA})
+                  </span>
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setStage(3)}
+                  className="rounded-xl border border-line bg-canvas px-4 py-2 text-xs font-semibold text-ink hover:border-line-strong"
+                >
+                  ← Volver a Revelación 1
+                </button>
+                <button
+                  type="button"
+                  onClick={resetTeamSession}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-canvas px-3.5 py-2 text-xs font-semibold text-ink-muted hover:text-err"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Reiniciar partida de esta pareja
+                </button>
+              </>
             )}
           </div>
         </section>

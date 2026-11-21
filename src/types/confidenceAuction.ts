@@ -1,3 +1,4 @@
+import { AUCTION_CATEGORY_BANK } from '../lib/spanishBank';
 import { createTimerState, normalizeTimerState, type SyncedTimerState } from '../lib/timer';
 
 export const CONFIDENCE_AUCTION_MODULE_ID = 'confidence-auction';
@@ -24,45 +25,14 @@ export interface ConfidenceAuctionState {
   timer: SyncedTimerState;
 }
 
-export const SAMPLE_AUCTION_CATEGORIES: AuctionCategory[] = [
-  {
-    id: 'cat_fridge',
-    title: "Things in Your Friend's Fridge Right Now",
-    hint: 'Condiments, leftovers, mystery jars — anything goes!',
-  },
-  {
-    id: 'cat_2000s_songs',
-    title: '2000s Songs Everyone Knows',
-    hint: 'Title or artist — fast fire!',
-  },
-  {
-    id: 'cat_late_excuses',
-    title: 'Classic Excuses for Being Late',
-    hint: 'From traffic to "my dog hid my keys"',
-  },
-  {
-    id: 'cat_pizza_toppings',
-    title: 'Pizza Toppings (Good or Controversial)',
-    hint: 'No repeats allowed!',
-  },
-  {
-    id: 'cat_movies_quoted',
-    title: 'Movies Everyone in This Room Has Seen',
-    hint: 'Animated, classics, blockbusters!',
-  },
-  {
-    id: 'cat_bag_items',
-    title: 'Things Inside a Car Glovebox or Backpack',
-    hint: 'Receipts, chargers, mystery coins...',
-  },
-];
+export const SAMPLE_AUCTION_CATEGORIES: AuctionCategory[] = AUCTION_CATEGORY_BANK;
 
 export function createInitialConfidenceAuctionState(
   firstTeamId: string | null
 ): ConfidenceAuctionState {
   return {
-    categories: SAMPLE_AUCTION_CATEGORIES.map((c) => ({ ...c })),
-    selectedCategoryId: SAMPLE_AUCTION_CATEGORIES[0].id,
+    categories: AUCTION_CATEGORY_BANK.map((c) => ({ ...c })),
+    selectedCategoryId: AUCTION_CATEGORY_BANK[0]?.id ?? null,
     bidTarget: 8,
     winningTeamId: firstTeamId,
     hits: 0,
@@ -89,7 +59,7 @@ export function normalizeConfidenceAuctionState(
           title: c.title,
           hint: typeof c.hint === 'string' ? c.hint : undefined,
         }))
-    : SAMPLE_AUCTION_CATEGORIES.map((c) => ({ ...c }));
+    : AUCTION_CATEGORY_BANK.map((c) => ({ ...c }));
 
   const selectedCategoryId =
     typeof obj.selectedCategoryId === 'string' && categories.some((c) => c.id === obj.selectedCategoryId)

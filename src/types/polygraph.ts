@@ -30,7 +30,7 @@ export function createSamplePolygraphStatements(firstTeamId: string | null): Pol
     {
       id: 'poly_1',
       statement:
-        'I once walked into the completely wrong wedding reception, ate free appetizers for 20 minutes, and sneaked out before anyone noticed.',
+        'Una vez entré por error a la recepción de una boda equivocada, comí bocadillos gratis durante 20 minutos y salí sin que nadie lo notara.',
       verdict: 'truth',
       teamId: firstTeamId,
       speakerSlot: 'A',
@@ -38,7 +38,7 @@ export function createSamplePolygraphStatements(firstTeamId: string | null): Pol
     {
       id: 'poly_2',
       statement:
-        'I have never once in my life watched a single episode of Stranger Things, Game of Thrones, or Breaking Bad.',
+        'Nunca en mi vida he visto un solo episodio completo de Stranger Things, Juego de Tronos ni Breaking Bad.',
       verdict: 'lie',
       teamId: firstTeamId,
       speakerSlot: 'B',
@@ -46,7 +46,7 @@ export function createSamplePolygraphStatements(firstTeamId: string | null): Pol
     {
       id: 'poly_3',
       statement:
-        'When I was 12, I tried to cut my own bangs the night before school picture day and blamed it on the family dog.',
+        'A los 12 años intenté cortarme el fleco la noche antes de la foto escolar y culpé al perro de la casa.',
       verdict: 'truth',
       teamId: firstTeamId,
       speakerSlot: 'A',
@@ -54,7 +54,7 @@ export function createSamplePolygraphStatements(firstTeamId: string | null): Pol
     {
       id: 'poly_4',
       statement:
-        'I once got locked inside a bookstore bathroom for 40 minutes after closing time and had to call the store front desk from inside.',
+        'Me quedé encerrado 40 minutos en el baño de una librería después de la hora de cierre y tuve que llamar por teléfono a la recepción.',
       verdict: 'lie',
       teamId: firstTeamId,
       speakerSlot: 'B',

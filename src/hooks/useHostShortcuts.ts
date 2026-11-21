@@ -216,6 +216,10 @@ export function useHostShortcuts() {
     (rowIndex: number) => {
       const firstTeamId = state.teams[0]?.id ?? null;
       const fm = normalizeFastMoneyState(state.moduleData[FAST_MONEY_MODULE_ID], firstTeamId);
+      if (fm.phase !== 'reveal') {
+        flashNotice('Pasa a Revelación 1 o 2 para revelar con 1–5');
+        return;
+      }
       const teamId =
         fm.selectedTeamId && state.teams.some((tItem) => tItem.id === fm.selectedTeamId)
           ? fm.selectedTeamId

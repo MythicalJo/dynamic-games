@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { CheckCircle2, FastForward, Flame, Lock, Sparkles, Trophy, XCircle, Zap } from 'lucide-react';
+import { Check, FastForward, Lock, Trophy, X } from 'lucide-react';
 import { useShow } from '../../../context/ShowContext';
 import { TEAM_ACCENTS } from '../../../types/show';
 import { AnimatedScore } from '../../shared/AnimatedScore';
@@ -16,12 +16,16 @@ export function FastMoneyDisplay() {
   const { t } = useShow();
   const {
     fmState,
+    stage,
     selectedTeam,
     activeSession,
     activeRoundState,
     remainingMs,
+    round1Total,
+    round2Total,
     activeRoundTotal,
     combinedTotal,
+    isFinalRevealComplete,
     guessingPlayerName,
     secretOwnerName,
     getActualAnswerForRound,
@@ -30,13 +34,10 @@ export function FastMoneyDisplay() {
   if (!selectedTeam) {
     return (
       <div className="flex h-full w-full flex-col items-center justify-center px-12 text-center">
-        <div className="mb-5 flex h-24 w-24 items-center justify-center rounded-3xl border border-amber-400/50 bg-amber-400/15 glow-gold">
-          <Flame className="h-12 w-12 text-amber-300" />
-        </div>
-        <h1 className="font-display text-7xl font-black tracking-wide text-gradient-gold uppercase">
+        <h1 className="text-6xl font-extrabold tracking-tight text-ink uppercase">
           {t.fastMoney.title}
         </h1>
-        <p className="mt-3 font-display text-2xl font-bold tracking-[0.2em] text-cyan-300 uppercase">
+        <p className="mt-3 font-mono text-base font-semibold tracking-[0.2em] text-ink-muted uppercase">
           {t.fastMoney.display.selectPair}
         </p>
       </div>
@@ -54,45 +55,51 @@ export function FastMoneyDisplay() {
   const answeredCount = activeRoundState.slots.filter((s) => s.status === 'answered').length;
   const passedCount = activeRoundState.slots.filter((s) => s.status === 'passed').length;
 
-  return (
-    <div className="flex h-full w-full flex-col justify-between px-8 py-6 md:px-14 md:py-8">
-      {/* TOP BROADCAST HEADER */}
-      <div className="flex items-center justify-between gap-4 border-b border-white/10 pb-4">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2.5 rounded-2xl border border-amber-400/50 bg-gradient-to-r from-amber-500/20 to-yellow-400/10 px-5 py-2 glow-gold">
-            <Flame className="h-6 w-6 text-amber-300" />
-            <span className="font-display text-3xl font-black tracking-wider text-gradient-gold uppercase leading-none">
-              {t.fastMoney.title}
-            </span>
-          </div>
+  const stageLabel =
+    stage === 1
+      ? 'FASE 1 DE 4 · RONDA 1'
+      : stage === 2
+        ? 'FASE 2 DE 4 · RONDA 2'
+        : stage === 3
+          ? 'FASE 3 DE 4 · REVELACIÓN 1'
+          : 'FASE 4 DE 4 · REVELACIÓN 2';
 
-          <div className="rounded-xl border border-cyan-400/45 bg-cyan-400/15 px-4 py-1.5 font-mono text-sm font-extrabold tracking-[0.22em] text-cyan-200 uppercase">
-            {t.fastMoney.live.roundOfTwo(fmState.activeRound)}
-          </div>
+  return (
+    <div className="flex h-full w-full flex-col justify-between px-10 py-8 md:px-16 md:py-10">
+      {/* Editorial Top Header */}
+      <div className="flex items-center justify-between gap-4 border-b border-line pb-5">
+        <div className="flex items-center gap-4">
+          <h1 className="text-2xl font-extrabold tracking-tight text-ink uppercase md:text-3xl">
+            {t.fastMoney.title}
+          </h1>
+          <span className="rounded-full border border-line bg-surface px-4 py-1 font-mono text-xs font-bold tracking-[0.18em] text-accent uppercase">
+            {stageLabel}
+          </span>
         </div>
 
-        <div
-          className={`flex items-center gap-5 rounded-2xl border ${teamAccent.border} bg-studio-900/90 px-5 py-2 backdrop-blur-md ${teamAccent.glow}`}
-        >
+        <div className="flex items-center gap-5 rounded-2xl border border-line bg-surface px-5 py-2.5">
           <div className="flex items-center gap-2.5">
-            <span className={`h-3 w-3 rounded-full ${teamAccent.dot}`} />
+            <span
+              className="h-3 w-3 rounded-full"
+              style={{ backgroundColor: teamAccent.hex }}
+            />
             <div>
-              <div className="font-display text-2xl font-black tracking-wide text-white uppercase leading-none">
+              <div className="text-lg font-extrabold tracking-tight text-ink uppercase leading-none">
                 {selectedTeam.name}
               </div>
-              <div className="text-xs font-bold tracking-wider text-slate-300 uppercase">
-                {selectedTeam.playerA} &amp; {selectedTeam.playerB}
+              <div className="mt-0.5 text-xs font-medium text-ink-muted">
+                {selectedTeam.playerA} y {selectedTeam.playerB}
               </div>
             </div>
           </div>
 
-          <div className="h-8 w-px bg-white/15" />
+          <div className="h-7 w-px bg-line" />
 
           <div className="text-right">
-            <div className="font-mono text-[10px] font-bold tracking-[0.2em] text-slate-400 uppercase">
+            <div className="font-mono text-[10px] font-bold tracking-[0.2em] text-ink-subtle uppercase">
               {t.common.teamScore}
             </div>
-            <div className="font-mono text-3xl font-black text-amber-300 leading-none">
+            <div className="font-mono text-2xl font-extrabold text-ink leading-none">
               <AnimatedScore value={selectedTeam.score} />
             </div>
           </div>
@@ -101,115 +108,83 @@ export function FastMoneyDisplay() {
 
       {/* MAIN STAGE */}
       <AnimatePresence mode="wait">
-        {fmState.phase === 'play' ? (
+        {stage === 1 || stage === 2 ? (
           <motion.div
-            key="fm-play-stage"
-            initial={{ opacity: 0, scale: 0.985 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 1.015 }}
-            transition={{ duration: 0.35 }}
-            className="grid flex-1 grid-cols-1 items-center gap-8 py-6 lg:grid-cols-12"
+            key={`fm-play-r${stage}`}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="grid flex-1 grid-cols-1 items-center gap-10 py-6 lg:grid-cols-12"
           >
-            {/* LEFT HERO: Active Player + GIANT Countdown Timer */}
+            {/* LEFT: Active Player + Giant Minimalist Clock */}
             <div className="flex flex-col items-center justify-center text-center lg:col-span-5">
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-cyan-400/40 bg-studio-900/85 px-5 py-1.5">
-                <span
-                  className={`h-2.5 w-2.5 rounded-full ${
-                    fmState.timer.isRunning ? 'animate-ping bg-rose-400' : 'bg-cyan-400'
-                  }`}
-                />
-                <span className="font-mono text-sm font-extrabold tracking-[0.25em] text-cyan-200 uppercase">
-                  {fmState.timer.isRunning
-                    ? t.fastMoney.display.onTheClock
-                    : isTimeUp
-                      ? t.common.buzzer
-                      : t.fastMoney.display.upToPlay}
-                </span>
-              </div>
+              <span className="rounded-full border border-line bg-surface px-4 py-1 font-mono text-xs font-bold tracking-[0.24em] text-accent uppercase">
+                {fmState.timer.isRunning
+                  ? t.fastMoney.display.onTheClock
+                  : isTimeUp
+                    ? t.common.buzzer
+                    : t.fastMoney.display.upToPlay}
+              </span>
 
               <h2
-                className="font-display font-black tracking-wide text-white uppercase drop-shadow-[0_6px_28px_rgba(0,229,255,0.25)]"
-                style={{ fontSize: 'clamp(3.2rem, 6vw, 5.5rem)', lineHeight: 0.95 }}
+                className="mt-4 font-extrabold tracking-tight text-ink uppercase"
+                style={{ fontSize: 'clamp(3rem, 5.5vw, 5rem)', lineHeight: 0.98 }}
               >
                 {guessingPlayerName}
               </h2>
-              <p className="mt-2 font-display text-2xl font-bold tracking-[0.14em] text-amber-300 uppercase">
+              <p className="mt-2 font-mono text-sm font-semibold tracking-[0.14em] text-ink-muted uppercase">
                 {t.fastMoney.display.guessingAnswers(secretOwnerName)}
               </p>
 
-              <motion.div
-                animate={
-                  isCritical && fmState.timer.isRunning ? { scale: [1, 1.03, 1] } : { scale: 1 }
-                }
-                transition={{
-                  repeat: isCritical && fmState.timer.isRunning ? Infinity : 0,
-                  duration: 0.6,
-                }}
-                className={`relative mt-7 flex w-full max-w-md flex-col items-center overflow-hidden rounded-[2.25rem] border-2 px-8 py-8 backdrop-blur-xl transition-colors ${
+              <div
+                className={`mt-8 flex w-full max-w-sm flex-col items-center rounded-3xl border-2 px-8 py-9 transition-colors ${
                   isTimeUp || isCritical
-                    ? 'border-rose-500 bg-gradient-to-b from-rose-500/25 via-studio-900/95 to-studio-950/95 shadow-[0_0_65px_rgba(255,51,88,0.45)]'
+                    ? 'border-err bg-err-soft'
                     : isWarning
-                      ? 'border-amber-400 bg-gradient-to-b from-amber-500/20 via-studio-900/95 to-studio-950/95 glow-gold'
-                      : 'border-cyan-400/75 bg-gradient-to-b from-cyan-500/15 via-studio-900/95 to-studio-950/95 glow-cyan'
+                      ? 'border-warn bg-warn-soft'
+                      : 'border-line-strong bg-surface'
                 }`}
               >
                 {isTimeUp ? (
-                  <motion.div
-                    initial={{ scale: 0.8, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    className="py-5 text-center"
+                  <div
+                    className="py-4 text-center font-extrabold tracking-tight text-err uppercase"
+                    style={{ fontSize: 'clamp(2.2rem, 4.2vw, 3.6rem)', lineHeight: 1.05 }}
                   >
-                    <div
-                      className="font-display font-black tracking-wider text-rose-400 uppercase drop-shadow-[0_0_30px_rgba(255,51,88,0.65)]"
-                      style={{ fontSize: 'clamp(2.8rem, 5.2vw, 4.6rem)', lineHeight: 0.95 }}
-                    >
-                      {t.common.timesUp}
-                    </div>
-                  </motion.div>
+                    {t.common.timesUp}
+                  </div>
                 ) : (
                   <div
-                    className={`font-mono font-black tracking-tight tabular-nums leading-none ${
-                      isCritical
-                        ? 'text-rose-400 drop-shadow-[0_0_35px_rgba(255,51,88,0.65)]'
-                        : isWarning
-                          ? 'text-amber-300 drop-shadow-[0_0_30px_rgba(255,201,51,0.5)]'
-                          : 'text-white drop-shadow-[0_0_35px_rgba(0,229,255,0.45)]'
+                    className={`font-mono font-extrabold tracking-tight tabular-nums leading-none ${
+                      isCritical ? 'text-err' : isWarning ? 'text-warn' : 'text-ink'
                     }`}
-                    style={{ fontSize: 'clamp(5.5rem, 11vw, 9.25rem)' }}
+                    style={{ fontSize: 'clamp(5.2rem, 10vw, 8.5rem)' }}
                   >
                     {formatDisplayClock(remainingMs)}
                   </div>
                 )}
 
-                <div className="mt-6 h-3.5 w-full overflow-hidden rounded-full bg-white/10">
+                <div className="mt-6 h-2 w-full overflow-hidden rounded-full bg-line">
                   <div
                     className={`h-full rounded-full transition-[width] duration-75 ${
-                      isTimeUp || isCritical
-                        ? 'bg-gradient-to-r from-rose-600 to-rose-400'
-                        : isWarning
-                          ? 'bg-gradient-to-r from-amber-500 to-yellow-300'
-                          : 'bg-gradient-to-r from-cyan-500 to-sky-300'
+                      isTimeUp || isCritical ? 'bg-err' : isWarning ? 'bg-warn' : 'bg-accent'
                     }`}
                     style={{ width: `${progressPct}%` }}
                   />
                 </div>
-              </motion.div>
+              </div>
             </div>
 
-            {/* RIGHT STAGE: 5 Masked Slots */}
-            <div className="flex flex-col justify-center gap-4 lg:col-span-7">
+            {/* RIGHT: 5 Masked Slots (No answers revealed during Phase 1 or 2) */}
+            <div className="flex flex-col justify-center gap-3.5 lg:col-span-7">
               <div className="flex items-center justify-between px-1">
-                <span className="font-mono text-sm font-extrabold tracking-[0.26em] text-cyan-300 uppercase">
+                <span className="font-mono text-xs font-bold tracking-[0.22em] text-ink-subtle uppercase">
                   {t.fastMoney.display.slotsHeading}
                 </span>
-                <div className="flex items-center gap-3 font-mono text-sm font-bold">
-                  <span className="text-emerald-300">
-                    {t.fastMoney.live.lockedBadge(answeredCount)}
-                  </span>
+                <div className="flex items-center gap-3 font-mono text-xs font-bold">
+                  <span className="text-ok">{t.fastMoney.live.lockedBadge(answeredCount)}</span>
                   {passedCount > 0 && (
-                    <span className="text-amber-300">
-                      • {t.fastMoney.live.passedBadge(passedCount)}
-                    </span>
+                    <span className="text-warn">· {t.fastMoney.live.passedBadge(passedCount)}</span>
                   )}
                 </div>
               </div>
@@ -223,96 +198,68 @@ export function FastMoneyDisplay() {
                   <motion.div
                     key={idx}
                     layout
-                    animate={
+                    className={`flex items-center justify-between rounded-2xl border-2 px-6 py-5 transition-colors ${
                       isAnswered
-                        ? { scale: [1, 1.018, 1] }
+                        ? 'border-ok bg-ok-soft'
                         : isPassed
-                          ? { x: [0, -5, 5, 0] }
-                          : { scale: 1 }
-                    }
-                    transition={{ duration: 0.35 }}
-                    className={`relative flex items-center justify-between overflow-hidden rounded-2xl border-2 px-6 py-5 backdrop-blur-md transition-all ${
-                      isAnswered
-                        ? 'border-emerald-400/75 bg-gradient-to-r from-emerald-500/20 via-studio-900/90 to-studio-900/85 shadow-[0_0_28px_rgba(52,211,153,0.22)]'
-                        : isPassed
-                          ? 'border-amber-400/80 bg-gradient-to-r from-amber-500/20 via-studio-900/90 to-studio-900/85 shadow-[0_0_26px_rgba(255,201,51,0.24)]'
+                          ? 'border-warn bg-warn-soft'
                           : isCurrent
-                            ? 'border-cyan-400 bg-gradient-to-r from-cyan-500/20 via-studio-900/90 to-studio-900/85 glow-cyan'
-                            : 'border-white/12 bg-studio-900/70'
+                            ? 'border-accent bg-accent-soft'
+                            : 'border-line bg-surface'
                     }`}
                   >
-                    {isCurrent && !isAnswered && (
-                      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-                        <div className="h-full w-1/3 bg-gradient-to-r from-transparent via-cyan-300/15 to-transparent animate-shimmer" />
-                      </div>
-                    )}
-
-                    <div className="relative flex items-center gap-5">
-                      <div
-                        className={`flex h-12 w-12 items-center justify-center rounded-xl font-display text-3xl font-black ${
+                    <div className="flex items-center gap-5">
+                      <span
+                        className={`flex h-11 w-11 items-center justify-center rounded-xl font-mono text-xl font-extrabold ${
                           isAnswered
-                            ? 'bg-emerald-400 text-studio-950'
+                            ? 'bg-ok text-ok-fg'
                             : isPassed
-                              ? 'bg-amber-400 text-studio-950'
+                              ? 'bg-warn text-warn-fg'
                               : isCurrent
-                                ? 'bg-cyan-400 text-studio-950'
-                                : 'bg-studio-800 text-slate-400'
+                                ? 'bg-accent text-accent-fg'
+                                : 'border border-line bg-canvas text-ink-subtle'
                         }`}
                       >
                         {idx + 1}
-                      </div>
+                      </span>
 
-                      <div className="flex items-center gap-2">
-                        {isAnswered ? (
-                          <div className="flex items-center gap-2.5">
-                            <div className="h-3.5 w-32 rounded-full bg-emerald-300/60 sm:w-48" />
-                            <div className="h-3.5 w-16 rounded-full bg-emerald-300/35 sm:w-24" />
-                          </div>
-                        ) : isPassed ? (
-                          <span className="font-display text-3xl font-black tracking-[0.2em] text-amber-300 uppercase">
-                            {t.fastMoney.display.passedComeBack}
-                          </span>
-                        ) : (
-                          <div className="flex items-center gap-2.5 opacity-45">
-                            <div className="h-3 w-28 rounded-full bg-slate-500/60 sm:w-44" />
-                            <div className="h-3 w-14 rounded-full bg-slate-500/40 sm:w-20" />
-                          </div>
-                        )}
-                      </div>
+                      {isAnswered ? (
+                        <div className="flex items-center gap-2">
+                          <span className="h-2.5 w-32 rounded-full bg-ok/40 sm:w-44" />
+                          <span className="h-2.5 w-14 rounded-full bg-ok/25 sm:w-20" />
+                        </div>
+                      ) : isPassed ? (
+                        <span className="text-xl font-extrabold tracking-wide text-warn uppercase">
+                          {t.fastMoney.display.passedComeBack}
+                        </span>
+                      ) : (
+                        <div className="flex items-center gap-2 opacity-35">
+                          <span className="h-2.5 w-28 rounded-full bg-ink-subtle sm:w-40" />
+                          <span className="h-2.5 w-12 rounded-full bg-ink-subtle sm:w-16" />
+                        </div>
+                      )}
                     </div>
 
-                    <div className="relative flex items-center gap-2.5">
+                    <div>
                       {isAnswered && (
-                        <div className="flex items-center gap-2 rounded-full border border-emerald-400/60 bg-emerald-400/20 px-4 py-1.5">
-                          <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-emerald-300 shadow-[0_0_10px_#34d399]" />
-                          <CheckCircle2 className="h-5 w-5 text-emerald-300" />
-                          <span className="font-mono text-sm font-black tracking-widest text-emerald-200 uppercase">
-                            {t.fastMoney.display.lockedIn}
-                          </span>
-                        </div>
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-ok px-4 py-1 font-mono text-xs font-bold tracking-widest text-ok-fg uppercase">
+                          <Check className="h-4 w-4 stroke-[2.5]" />
+                          {t.fastMoney.display.lockedIn}
+                        </span>
                       )}
-
                       {isPassed && (
-                        <div className="flex items-center gap-2 rounded-full border border-amber-400/60 bg-amber-400/20 px-4 py-1.5">
-                          <span className="h-2.5 w-2.5 animate-ping rounded-full bg-amber-300" />
-                          <FastForward className="h-5 w-5 text-amber-300" />
-                          <span className="font-mono text-sm font-black tracking-widest text-amber-200 uppercase">
-                            {t.fastMoney.display.passedPill}
-                          </span>
-                        </div>
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-warn px-4 py-1 font-mono text-xs font-bold tracking-widest text-warn-fg uppercase">
+                          <FastForward className="h-3.5 w-3.5" />
+                          {t.fastMoney.display.passedPill}
+                        </span>
                       )}
-
                       {!isAnswered && !isPassed && isCurrent && (
-                        <div className="flex items-center gap-2 rounded-full border border-cyan-400/60 bg-cyan-400/20 px-4 py-1.5">
-                          <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-cyan-300" />
-                          <span className="font-mono text-sm font-extrabold tracking-widest text-cyan-200 uppercase">
-                            {t.common.active}
-                          </span>
-                        </div>
+                        <span className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-1 font-mono text-xs font-bold tracking-widest text-accent-fg uppercase">
+                          {t.common.active}
+                        </span>
                       )}
-
                       {!isAnswered && !isPassed && !isCurrent && (
-                        <Lock className="h-5 w-5 text-slate-600" />
+                        <Lock className="h-4 w-4 text-ink-subtle" />
                       )}
                     </div>
                   </motion.div>
@@ -321,33 +268,23 @@ export function FastMoneyDisplay() {
             </div>
           </motion.div>
         ) : (
-          /* REVEAL & SCORING BOARD */
+          /* PHASES 3 & 4: 2-COLUMN REVEAL BOARD */
           <motion.div
-            key="fm-reveal-board"
-            initial={{ opacity: 0, y: 18 }}
+            key={`fm-reveal-s${stage}`}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -18 }}
-            transition={{ duration: 0.38 }}
-            className="flex flex-1 flex-col justify-between py-4"
+            exit={{ opacity: 0, y: -12 }}
+            transition={{ duration: 0.3 }}
+            className="flex flex-1 flex-col justify-between py-5"
           >
-            <div className="mb-3 grid grid-cols-12 items-center gap-4 px-2">
-              <div className="col-span-5 flex items-center gap-2.5">
-                <span className="h-3 w-3 rounded-full bg-cyan-400 shadow-[0_0_12px_#00e5ff]" />
-                <span className="font-display text-2xl font-black tracking-[0.14em] text-cyan-200 uppercase md:text-3xl">
-                  {t.fastMoney.display.guessCol(guessingPlayerName)}
-                </span>
-              </div>
-              <div className="col-span-5 flex items-center gap-2.5">
-                <span className="h-3 w-3 rounded-full bg-amber-400 shadow-[0_0_12px_#ffc933]" />
-                <span className="font-display text-2xl font-black tracking-[0.14em] text-amber-200 uppercase md:text-3xl">
-                  {t.fastMoney.display.actualCol(secretOwnerName)}
-                </span>
-              </div>
-              <div className="col-span-2 text-center font-display text-2xl font-black tracking-[0.16em] text-slate-300 uppercase md:text-3xl">
-                {t.common.points}
-              </div>
+            {/* Column Headers */}
+            <div className="mb-3 grid grid-cols-12 items-center gap-4 px-2 font-mono text-xs font-bold tracking-[0.2em] text-ink-muted uppercase">
+              <div className="col-span-5">{t.fastMoney.display.guessCol(guessingPlayerName)}</div>
+              <div className="col-span-5">{t.fastMoney.display.actualCol(secretOwnerName)}</div>
+              <div className="col-span-2 text-center">{t.common.points}</div>
             </div>
 
+            {/* 5 Reveal Rows */}
             <div className="flex flex-1 flex-col justify-center gap-3">
               {activeRoundState.slots.map((slot, idx) => {
                 const q = activeSession.questions[idx];
@@ -359,24 +296,24 @@ export function FastMoneyDisplay() {
                 return (
                   <div
                     key={idx}
-                    className={`grid grid-cols-12 items-stretch gap-3.5 rounded-2xl border p-2.5 transition-all ${
+                    className={`grid grid-cols-12 items-stretch gap-3.5 rounded-2xl border p-2.5 transition-colors ${
                       isExact
-                        ? 'border-amber-400/75 bg-gradient-to-r from-amber-500/15 via-studio-900/90 to-emerald-500/15 glow-gold'
+                        ? 'border-ok bg-ok-soft'
                         : isClose
-                          ? 'border-cyan-400/60 bg-gradient-to-r from-cyan-500/12 via-studio-900/90 to-studio-900/85 glow-cyan'
+                          ? 'border-accent bg-accent-soft'
                           : isMiss
-                            ? 'border-rose-500/45 bg-rose-500/8'
-                            : 'border-white/10 bg-studio-900/65'
+                            ? 'border-err/50 bg-err-soft'
+                            : 'border-line bg-surface'
                     }`}
                   >
                     <div className="col-span-5 flex items-center gap-3.5" style={{ perspective: 900 }}>
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-studio-850 font-display text-2xl font-black text-cyan-300">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-line bg-canvas font-mono text-lg font-bold text-ink-muted">
                         {idx + 1}
-                      </div>
+                      </span>
 
                       <div className="min-w-0 flex-1">
                         {q?.question && (
-                          <div className="mb-1 truncate font-mono text-[11px] font-bold tracking-wider text-slate-400 uppercase">
+                          <div className="mb-1 truncate text-xs font-medium text-ink-muted">
                             {q.question}
                           </div>
                         )}
@@ -384,19 +321,19 @@ export function FastMoneyDisplay() {
                         <AnimatePresence mode="wait">
                           {slot.guessRevealed ? (
                             <motion.div
-                              key="guess-open"
-                              initial={{ rotateX: -85, opacity: 0 }}
+                              key="g-open"
+                              initial={{ rotateX: -80, opacity: 0 }}
                               animate={{ rotateX: 0, opacity: 1 }}
-                              exit={{ rotateX: 85, opacity: 0 }}
-                              transition={{ type: 'spring', stiffness: 260, damping: 22 }}
-                              className="flex min-h-[3.25rem] items-center rounded-xl border border-cyan-400/50 bg-studio-950/90 px-4 py-2 shadow-inner"
+                              exit={{ rotateX: 80, opacity: 0 }}
+                              transition={{ type: 'spring', stiffness: 260, damping: 24 }}
+                              className="flex min-h-[3rem] items-center rounded-xl border border-line-strong bg-canvas px-4 py-2"
                             >
                               {slot.guess.trim() ? (
-                                <span className="truncate font-display text-3xl font-extrabold tracking-wide text-white uppercase md:text-4xl">
+                                <span className="truncate text-2xl font-extrabold tracking-tight text-ink uppercase md:text-3xl">
                                   {slot.guess}
                                 </span>
                               ) : (
-                                <span className="font-display text-2xl font-extrabold tracking-widest text-amber-300/80 uppercase">
+                                <span className="font-mono text-base font-bold text-warn uppercase">
                                   {slot.status === 'passed'
                                     ? t.fastMoney.display.passedPill
                                     : t.fastMoney.display.noGuess}
@@ -405,15 +342,14 @@ export function FastMoneyDisplay() {
                             </motion.div>
                           ) : (
                             <motion.div
-                              key="guess-locked"
+                              key="g-locked"
                               initial={{ opacity: 0 }}
                               animate={{ opacity: 1 }}
                               exit={{ rotateX: 70, opacity: 0 }}
-                              transition={{ duration: 0.2 }}
-                              className="flex min-h-[3.25rem] items-center justify-center gap-2 rounded-xl border border-white/12 bg-studio-850/85 px-4 py-2"
+                              className="flex min-h-[3rem] items-center justify-center gap-2 rounded-xl border border-line bg-surface-2 px-4 py-2"
                             >
-                              <Lock className="h-4 w-4 text-slate-500" />
-                              <span className="font-mono text-xs font-bold tracking-[0.22em] text-slate-500 uppercase">
+                              <Lock className="h-3.5 w-3.5 text-ink-subtle" />
+                              <span className="font-mono text-[11px] font-semibold tracking-[0.2em] text-ink-subtle uppercase">
                                 {t.fastMoney.display.guessCol(guessingPlayerName)}
                               </span>
                             </motion.div>
@@ -423,7 +359,7 @@ export function FastMoneyDisplay() {
                     </div>
 
                     <div className="col-span-5 flex flex-col justify-end" style={{ perspective: 900 }}>
-                      <div className="mb-1 hidden font-mono text-[11px] font-bold tracking-wider text-amber-300/60 uppercase sm:block">
+                      <div className="mb-1 hidden text-xs font-medium text-ink-subtle sm:block">
                         {slot.actualRevealed
                           ? t.fastMoney.display.realAnswer(secretOwnerName)
                           : t.fastMoney.display.secretAnswer}
@@ -432,28 +368,27 @@ export function FastMoneyDisplay() {
                       <AnimatePresence mode="wait">
                         {slot.actualRevealed ? (
                           <motion.div
-                            key="actual-open"
-                            initial={{ rotateX: -85, opacity: 0 }}
+                            key="a-open"
+                            initial={{ rotateX: -80, opacity: 0 }}
                             animate={{ rotateX: 0, opacity: 1 }}
-                            exit={{ rotateX: 85, opacity: 0 }}
-                            transition={{ type: 'spring', stiffness: 260, damping: 22 }}
-                            className="relative flex min-h-[3.25rem] items-center overflow-hidden rounded-xl border border-amber-400/70 bg-gradient-to-r from-amber-500/20 via-studio-950/95 to-amber-500/15 px-4 py-2"
+                            exit={{ rotateX: 80, opacity: 0 }}
+                            transition={{ type: 'spring', stiffness: 260, damping: 24 }}
+                            className="flex min-h-[3rem] items-center rounded-xl border border-accent bg-canvas px-4 py-2"
                           >
-                            <span className="truncate font-display text-3xl font-extrabold tracking-wide text-amber-100 uppercase md:text-4xl">
+                            <span className="truncate text-2xl font-extrabold tracking-tight text-ink uppercase md:text-3xl">
                               {actualAnswer.trim() || '—'}
                             </span>
                           </motion.div>
                         ) : (
                           <motion.div
-                            key="actual-locked"
+                            key="a-locked"
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ rotateX: 70, opacity: 0 }}
-                            transition={{ duration: 0.2 }}
-                            className="flex min-h-[3.25rem] items-center justify-center gap-2 rounded-xl border border-amber-400/20 bg-studio-850/80 px-4 py-2"
+                            className="flex min-h-[3rem] items-center justify-center gap-2 rounded-xl border border-line bg-surface-2 px-4 py-2"
                           >
-                            <Sparkles className="h-4 w-4 text-amber-400/50" />
-                            <span className="font-mono text-xs font-bold tracking-[0.22em] text-amber-300/45 uppercase">
+                            <Lock className="h-3.5 w-3.5 text-ink-subtle" />
+                            <span className="font-mono text-[11px] font-semibold tracking-[0.2em] text-ink-subtle uppercase">
                               {t.fastMoney.display.secretAnswer}
                             </span>
                           </motion.div>
@@ -465,20 +400,14 @@ export function FastMoneyDisplay() {
                       <AnimatePresence mode="wait">
                         {slot.rating === 'exact' && (
                           <motion.div
-                            key="pts-exact"
-                            initial={{ scale: 0.35, rotate: -10, opacity: 0 }}
-                            animate={{ scale: 1, rotate: 0, opacity: 1 }}
-                            transition={{ type: 'spring', stiffness: 360, damping: 16 }}
-                            className="relative flex h-full w-full flex-col items-center justify-center overflow-hidden rounded-xl border-2 border-amber-300 bg-gradient-to-b from-yellow-300 via-amber-400 to-amber-500 px-2 py-1 text-studio-950 shadow-[0_0_32px_rgba(255,201,51,0.65)]"
+                            key="p-exact"
+                            initial={{ scale: 0.6, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            transition={{ type: 'spring', stiffness: 360, damping: 18 }}
+                            className="flex h-full w-full flex-col items-center justify-center rounded-xl bg-ok px-2 py-1 text-ok-fg"
                           >
-                            <div className="pointer-events-none absolute inset-0 overflow-hidden">
-                              <div className="h-full w-1/2 bg-white/35 animate-shimmer" />
-                            </div>
-                            <div className="relative flex items-center gap-1 font-mono text-3xl font-black leading-none md:text-4xl">
-                              <Zap className="h-5 w-5 fill-current" />
-                              +20
-                            </div>
-                            <span className="relative mt-0.5 font-mono text-[10px] font-black tracking-[0.18em] uppercase">
+                            <div className="font-mono text-3xl font-extrabold leading-none">+20</div>
+                            <span className="mt-0.5 font-mono text-[10px] font-bold tracking-[0.16em] uppercase">
                               {t.fastMoney.display.exactMatchStamp}
                             </span>
                           </motion.div>
@@ -486,16 +415,14 @@ export function FastMoneyDisplay() {
 
                         {slot.rating === 'close' && (
                           <motion.div
-                            key="pts-close"
-                            initial={{ scale: 0.45, opacity: 0 }}
+                            key="p-close"
+                            initial={{ scale: 0.6, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
-                            transition={{ type: 'spring', stiffness: 320, damping: 18 }}
-                            className="flex h-full w-full flex-col items-center justify-center rounded-xl border-2 border-cyan-300 bg-gradient-to-b from-cyan-300 to-sky-500 px-2 py-1 text-studio-950 shadow-[0_0_26px_rgba(0,229,255,0.5)]"
+                            transition={{ type: 'spring', stiffness: 340, damping: 20 }}
+                            className="flex h-full w-full flex-col items-center justify-center rounded-xl bg-accent px-2 py-1 text-accent-fg"
                           >
-                            <div className="font-mono text-3xl font-black leading-none md:text-4xl">
-                              +10
-                            </div>
-                            <span className="mt-0.5 font-mono text-[10px] font-black tracking-[0.18em] uppercase">
+                            <div className="font-mono text-3xl font-extrabold leading-none">+10</div>
+                            <span className="mt-0.5 font-mono text-[10px] font-bold tracking-[0.14em] uppercase">
                               {t.fastMoney.display.closeMatchStamp}
                             </span>
                           </motion.div>
@@ -503,28 +430,25 @@ export function FastMoneyDisplay() {
 
                         {slot.rating === 'miss' && (
                           <motion.div
-                            key="pts-miss"
-                            initial={{ x: -10, opacity: 0 }}
-                            animate={{ x: [0, -8, 8, -5, 5, 0], opacity: 1 }}
-                            transition={{ duration: 0.4 }}
-                            className="flex h-full w-full flex-col items-center justify-center rounded-xl border-2 border-rose-500/80 bg-rose-500/20 px-2 py-1 text-rose-300"
+                            key="p-miss"
+                            initial={{ x: -8, opacity: 0 }}
+                            animate={{ x: [0, -6, 6, -3, 3, 0], opacity: 1 }}
+                            transition={{ duration: 0.35 }}
+                            className="flex h-full w-full flex-col items-center justify-center rounded-xl border border-err bg-err-soft px-2 py-1 text-err"
                           >
-                            <div className="flex items-center gap-1 font-mono text-3xl font-black leading-none">
-                              <XCircle className="h-6 w-6" />0
+                            <div className="flex items-center gap-0.5 font-mono text-2xl font-extrabold leading-none">
+                              <X className="h-5 w-5" />0
                             </div>
-                            <span className="mt-0.5 font-mono text-[10px] font-bold tracking-[0.2em] uppercase">
+                            <span className="mt-0.5 font-mono text-[10px] font-bold tracking-[0.18em] uppercase">
                               {t.fastMoney.display.missStamp}
                             </span>
                           </motion.div>
                         )}
 
                         {slot.rating === null && (
-                          <motion.div
-                            key="pts-pending"
-                            className="flex h-full w-full items-center justify-center rounded-xl border border-white/10 bg-studio-950/60 font-mono text-2xl font-bold text-slate-600"
-                          >
+                          <div className="flex h-full w-full items-center justify-center rounded-xl border border-line bg-canvas font-mono text-xl font-semibold text-ink-subtle">
                             —
-                          </motion.div>
+                          </div>
                         )}
                       </AnimatePresence>
                     </div>
@@ -533,39 +457,73 @@ export function FastMoneyDisplay() {
               })}
             </div>
 
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-amber-400/40 bg-studio-900/90 px-6 py-3 backdrop-blur-xl glow-gold">
+            {/* Bottom Totals Bar (Phase 3 shows Round 1 total; Phase 4 shows R1 + R2 = Combined Final Total) */}
+            <div
+              className={`mt-4 flex flex-wrap items-center justify-between gap-4 rounded-2xl border-2 px-6 py-4 transition-colors ${
+                isFinalRevealComplete
+                  ? 'border-ok bg-ok-soft'
+                  : 'border-line bg-surface'
+              }`}
+            >
               <div className="flex items-center gap-3">
-                <Trophy className="h-7 w-7 text-amber-400" />
-                <div>
-                  <div className="font-mono text-[11px] font-bold tracking-[0.22em] text-slate-400 uppercase">
-                    {t.fastMoney.display.roundPoints(fmState.activeRound)}
+                {isFinalRevealComplete && (
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-ok text-ok-fg">
+                    <Trophy className="h-6 w-6" />
                   </div>
-                  <div className="font-display text-3xl font-black tracking-wide text-white uppercase leading-none">
+                )}
+                <div>
+                  <div className="font-mono text-[11px] font-bold tracking-[0.2em] text-ink-subtle uppercase">
+                    {stage === 3
+                      ? `REVELACIÓN 1 · ${selectedTeam.playerA} SOBRE ${selectedTeam.playerB}`
+                      : isFinalRevealComplete
+                        ? `MARCADOR FINAL DE DINERO RÁPIDO · ${selectedTeam.name}`
+                        : `REVELACIÓN 2 · ${selectedTeam.playerB} SOBRE ${selectedTeam.playerA}`}
+                  </div>
+                  <div className="text-2xl font-extrabold tracking-tight text-ink uppercase">
                     {t.fastMoney.display.playerRun(guessingPlayerName)}
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-8">
+              <div className="flex items-center gap-7">
+                {stage === 4 && (
+                  <>
+                    <div className="text-right">
+                      <div className="font-mono text-[11px] font-bold tracking-[0.18em] text-ink-subtle uppercase">
+                        RONDA 1
+                      </div>
+                      <div className="font-mono text-3xl font-bold text-ink-muted leading-none">
+                        +{round1Total}
+                      </div>
+                    </div>
+
+                    <div className="h-9 w-px bg-line" />
+                  </>
+                )}
+
                 <div className="text-right">
-                  <div className="font-mono text-[11px] font-bold tracking-[0.22em] text-cyan-300 uppercase">
-                    {t.fastMoney.display.roundTotal(fmState.activeRound)}
+                  <div className="font-mono text-[11px] font-bold tracking-[0.18em] text-ink-muted uppercase">
+                    {stage === 3 ? 'TOTAL RONDA 1' : 'RONDA 2'}
                   </div>
-                  <div className="font-mono text-4xl font-black text-cyan-300 leading-none">
-                    +<AnimatedScore value={activeRoundTotal} />
+                  <div className="font-mono text-4xl font-extrabold text-accent leading-none">
+                    +<AnimatedScore value={stage === 3 ? activeRoundTotal : round2Total} />
                   </div>
                 </div>
 
-                <div className="h-10 w-px bg-white/15" />
+                {stage === 4 && (
+                  <>
+                    <div className="h-10 w-px bg-line" />
 
-                <div className="text-right">
-                  <div className="font-mono text-[11px] font-bold tracking-[0.22em] text-amber-300 uppercase">
-                    {t.fastMoney.display.combinedTotal}
-                  </div>
-                  <div className="font-mono text-5xl font-black text-gradient-gold leading-none">
-                    <AnimatedScore value={combinedTotal} />
-                  </div>
-                </div>
+                    <div className="text-right">
+                      <div className="font-mono text-[11px] font-bold tracking-[0.18em] text-ok uppercase">
+                        TOTAL COMBINADO
+                      </div>
+                      <div className="font-mono text-5xl font-extrabold text-ink leading-none">
+                        +<AnimatedScore value={combinedTotal} />
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </motion.div>

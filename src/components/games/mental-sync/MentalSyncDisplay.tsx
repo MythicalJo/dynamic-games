@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { Brain, CheckCircle2, Clock, Sparkles, XCircle, Zap } from 'lucide-react';
+import { Check, Clock, X } from 'lucide-react';
 import { useShow } from '../../../context/ShowContext';
 import { formatBroadcastTimer } from '../../../lib/timer';
 import { MENTAL_SYNC_MATCH_POINTS } from '../../../types/mentalSync';
@@ -17,19 +17,19 @@ export function MentalSyncDisplay() {
   const isCritical = !isTimeUp && remainingSec <= 5;
   const hasWhiteboardText =
     Boolean(syncState.playerAAnswer.trim()) || Boolean(syncState.playerBAnswer.trim());
+  const displayPromptText = activePrompt?.text
+    ? activePrompt.text.replace(/\[Nombre\]/gi, activeTeam?.playerA || 'tu pareja')
+    : t.mentalSync.display.readyPrompt;
 
   return (
-    <div className="relative flex h-full w-full flex-col justify-between px-10 py-8 md:px-16 md:py-10">
-      {/* Top Broadcast Header */}
-      <div className="flex items-center justify-between gap-4 border-b border-white/10 pb-4">
+    <div className="relative flex h-full w-full flex-col justify-between px-12 py-9 md:px-20 md:py-11">
+      {/* Top Header */}
+      <div className="flex items-center justify-between gap-4 border-b border-line pb-5">
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2.5 rounded-2xl border border-cyan-400/50 bg-gradient-to-r from-cyan-500/20 to-violet-500/15 px-5 py-2 glow-cyan">
-            <Brain className="h-6 w-6 text-cyan-300" />
-            <span className="font-display text-3xl font-black tracking-wider text-gradient-cyan uppercase leading-none">
-              {t.mentalSync.title}
-            </span>
-          </div>
-          <span className="hidden font-mono text-sm font-bold tracking-[0.25em] text-amber-300/90 uppercase lg:inline-block">
+          <h1 className="text-2xl font-extrabold tracking-tight text-ink uppercase md:text-3xl">
+            {t.mentalSync.title}
+          </h1>
+          <span className="hidden rounded-full border border-line bg-surface px-4 py-1 font-mono text-xs font-bold tracking-[0.2em] text-accent uppercase lg:inline-block">
             {t.mentalSync.subtitle}
           </span>
         </div>
@@ -37,36 +37,35 @@ export function MentalSyncDisplay() {
         <div className="flex items-center gap-4">
           {syncState.timerEnabled && (
             <div
-              className={`flex items-center gap-2.5 rounded-2xl border-2 px-5 py-2 backdrop-blur-md transition-colors ${
+              className={`flex items-center gap-2 rounded-2xl border-2 px-4 py-2 font-mono text-2xl font-extrabold tabular-nums leading-none ${
                 isTimeUp || isCritical
-                  ? 'border-rose-500 bg-rose-500/20 text-rose-300 glow-live'
-                  : 'border-cyan-400/60 bg-studio-900/90 text-cyan-200 glow-cyan'
+                  ? 'border-err bg-err-soft text-err'
+                  : 'border-line-strong bg-surface text-ink'
               }`}
             >
               <Clock className="h-5 w-5" />
-              <span className="font-mono text-3xl font-black tabular-nums leading-none">
-                {isTimeUp ? t.common.timeBang : `${formatBroadcastTimer(remainingMs)}s`}
-              </span>
+              <span>{isTimeUp ? t.common.timeBang : `${formatBroadcastTimer(remainingMs)}s`}</span>
             </div>
           )}
 
           {activeTeam && teamAccent && (
-            <div
-              className={`flex items-center gap-4 rounded-2xl border ${teamAccent.border} bg-studio-900/90 px-5 py-2 backdrop-blur-md ${teamAccent.glow}`}
-            >
+            <div className="flex items-center gap-4 rounded-2xl border border-line bg-surface px-5 py-2.5">
               <div className="flex items-center gap-2.5">
-                <span className={`h-3 w-3 rounded-full ${teamAccent.dot}`} />
+                <span
+                  className="h-3 w-3 rounded-full"
+                  style={{ backgroundColor: teamAccent.hex }}
+                />
                 <div>
-                  <div className="font-display text-2xl font-black tracking-wide text-white uppercase leading-none">
+                  <div className="text-lg font-extrabold text-ink uppercase leading-none">
                     {activeTeam.name}
                   </div>
-                  <div className="text-xs font-bold tracking-wider text-slate-300 uppercase">
-                    {activeTeam.playerA} &amp; {activeTeam.playerB}
+                  <div className="mt-0.5 text-xs font-medium text-ink-muted">
+                    {activeTeam.playerA} y {activeTeam.playerB}
                   </div>
                 </div>
               </div>
-              <div className="h-8 w-px bg-white/15" />
-              <div className="font-mono text-3xl font-black text-amber-300 leading-none">
+              <div className="h-7 w-px bg-line" />
+              <div className="font-mono text-2xl font-extrabold text-ink leading-none">
                 <AnimatedScore value={activeTeam.score} />
               </div>
             </div>
@@ -74,61 +73,57 @@ export function MentalSyncDisplay() {
         </div>
       </div>
 
-      {/* Centered Bold Prompt Stage */}
-      <div className="my-auto flex flex-1 flex-col items-center justify-center gap-7 py-6">
+      {/* Main Centered Bold Prompt */}
+      <div className="my-auto flex flex-1 flex-col items-center justify-center gap-8 py-6">
         <AnimatePresence mode="wait">
           <motion.div
             key={activePrompt?.id ?? 'no-prompt'}
-            initial={{ opacity: 0, y: 20, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -20, scale: 0.96 }}
-            transition={{ duration: 0.38, ease: [0.16, 1, 0.3, 1] }}
-            className="flex w-full max-w-6xl flex-col items-center gap-6"
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -14 }}
+            transition={{ duration: 0.32 }}
+            className="flex w-full max-w-5xl flex-col items-center gap-6"
           >
-            <div className="inline-flex items-center gap-2.5 rounded-full border border-cyan-400/45 bg-cyan-400/15 px-6 py-2 glow-cyan">
-              <Sparkles className="h-4 w-4 text-amber-300" />
-              <span className="font-mono text-base font-extrabold tracking-[0.26em] text-cyan-200 uppercase">
+            <div className="inline-flex items-center gap-3 rounded-full border border-line bg-surface px-5 py-1.5">
+              <span className="font-mono text-xs font-bold tracking-[0.22em] text-ink-muted uppercase">
                 {activePrompt?.type === 'fill' ? t.mentalSync.fillTag : t.mentalSync.whoTag}
               </span>
-              <span className="rounded-full bg-amber-400/25 px-3 py-0.5 font-mono text-xs font-black text-amber-200">
+              <span className="rounded-full bg-accent px-3 py-0.5 font-mono text-xs font-bold text-accent-fg">
                 +{MENTAL_SYNC_MATCH_POINTS} {t.common.pts}
               </span>
             </div>
 
-            <div className="relative w-full overflow-hidden rounded-[2.25rem] border-2 border-cyan-400/40 bg-studio-900/85 px-10 py-12 text-center shadow-[0_28px_90px_rgba(0,0,0,0.6)] backdrop-blur-xl md:px-16 md:py-16">
-              <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-cyan-300 to-transparent" />
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-transparent via-amber-400/70 to-transparent" />
-
-              <h1
-                className="font-sans font-black leading-tight tracking-tight text-white drop-shadow-[0_6px_24px_rgba(0,0,0,0.6)]"
-                style={{ fontSize: 'clamp(2.2rem, 4.7vw, 4.4rem)' }}
+            <div className="w-full rounded-3xl border border-line bg-surface px-10 py-14 text-center md:px-16 md:py-16">
+              <h2
+                className="font-extrabold leading-tight tracking-tight text-ink"
+                style={{ fontSize: 'clamp(2.2rem, 4.6vw, 4.2rem)' }}
               >
-                {activePrompt?.text || t.mentalSync.display.readyPrompt}
-              </h1>
+                {displayPromptText}
+              </h2>
             </div>
 
             <AnimatePresence>
               {syncState.showWhiteboardsOnDisplay && hasWhiteboardText && (
                 <motion.div
-                  initial={{ opacity: 0, y: 24 }}
+                  initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 16 }}
+                  exit={{ opacity: 0, y: 10 }}
                   className="grid w-full grid-cols-1 gap-5 md:grid-cols-2"
                 >
-                  <div className="rounded-3xl border-2 border-cyan-400/60 bg-studio-900/90 px-8 py-6 text-center backdrop-blur-xl glow-cyan">
-                    <div className="font-mono text-sm font-extrabold tracking-[0.25em] text-cyan-300 uppercase">
+                  <div className="rounded-2xl border border-line-strong bg-canvas px-8 py-6 text-center">
+                    <div className="font-mono text-xs font-bold tracking-[0.22em] text-accent uppercase">
                       {t.mentalSync.display.wroteLabel(activeTeam?.playerA || 'A')}
                     </div>
-                    <div className="mt-2 font-display text-4xl font-black tracking-wide text-white uppercase md:text-5xl">
+                    <div className="mt-2 text-3xl font-extrabold tracking-tight text-ink uppercase md:text-4xl">
                       {syncState.playerAAnswer.trim() || '—'}
                     </div>
                   </div>
 
-                  <div className="rounded-3xl border-2 border-amber-400/60 bg-studio-900/90 px-8 py-6 text-center backdrop-blur-xl glow-gold">
-                    <div className="font-mono text-sm font-extrabold tracking-[0.25em] text-amber-300 uppercase">
+                  <div className="rounded-2xl border border-line-strong bg-canvas px-8 py-6 text-center">
+                    <div className="font-mono text-xs font-bold tracking-[0.22em] text-accent uppercase">
                       {t.mentalSync.display.wroteLabel(activeTeam?.playerB || 'B')}
                     </div>
-                    <div className="mt-2 font-display text-4xl font-black tracking-wide text-amber-100 uppercase md:text-5xl">
+                    <div className="mt-2 text-3xl font-extrabold tracking-tight text-ink uppercase md:text-4xl">
                       {syncState.playerBAnswer.trim() || '—'}
                     </div>
                   </div>
@@ -139,11 +134,11 @@ export function MentalSyncDisplay() {
         </AnimatePresence>
       </div>
 
-      <div className="text-center font-mono text-sm font-bold tracking-[0.28em] text-slate-400 uppercase">
+      <div className="text-center font-mono text-xs font-bold tracking-[0.26em] text-ink-subtle uppercase">
         {t.mentalSync.display.footerCue}
       </div>
 
-      {/* DRAMATIC RESULT OVERLAY: "¡SINCRONIZADOS!" / "SYNCED!" OR "NO COINCIDEN" / "NO MATCH" */}
+      {/* CLEAN HIGH-IMPACT OVERLAY: "¡SINCRONIZADOS!" OR "NO COINCIDEN" */}
       <AnimatePresence>
         {syncState.result === 'match' && (
           <motion.div
@@ -151,44 +146,33 @@ export function MentalSyncDisplay() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.22 }}
-            className="fixed inset-0 z-40 flex items-center justify-center bg-studio-950/80 backdrop-blur-md"
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-40 flex items-center justify-center bg-canvas/90 backdrop-blur-sm"
           >
             <motion.div
-              initial={{ scale: 0.4, opacity: 0.9 }}
-              animate={{ scale: 1.8, opacity: 0 }}
-              transition={{ duration: 1.1, ease: 'easeOut' }}
-              className="pointer-events-none absolute h-96 w-96 rounded-full border-4 border-emerald-400"
-            />
-            <motion.div
-              initial={{ scale: 0.5, rotate: -6, opacity: 0 }}
-              animate={{ scale: 1, rotate: 0, opacity: 1 }}
-              exit={{ scale: 0.85, opacity: 0 }}
-              transition={{ type: 'spring', stiffness: 320, damping: 18 }}
-              className="relative flex flex-col items-center overflow-hidden rounded-[2.75rem] border-4 border-emerald-300 bg-gradient-to-b from-emerald-500/35 via-studio-900/95 to-amber-500/25 px-14 py-12 text-center shadow-[0_0_90px_rgba(52,211,153,0.55)]"
+              initial={{ scale: 0.82, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.92, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 340, damping: 22 }}
+              className="flex flex-col items-center rounded-3xl border-4 border-ok bg-surface px-14 py-12 text-center shadow-2xl"
             >
-              <div className="pointer-events-none absolute inset-0 overflow-hidden">
-                <div className="h-full w-1/3 bg-white/20 animate-shimmer" />
-              </div>
-
-              <div className="mb-3 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-400 text-studio-950 shadow-[0_0_35px_rgba(52,211,153,0.75)]">
-                <CheckCircle2 className="h-12 w-12 stroke-[2.8]" />
+              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-ok text-ok-fg">
+                <Check className="h-9 w-9 stroke-[3]" />
               </div>
 
               <div
-                className="font-display font-black tracking-[0.05em] text-gradient-gold uppercase drop-shadow-[0_10px_30px_rgba(255,201,51,0.45)]"
-                style={{ fontSize: 'clamp(3.6rem, 9.5vw, 8.2rem)', lineHeight: 0.92 }}
+                className="font-extrabold tracking-tight text-ok uppercase"
+                style={{ fontSize: 'clamp(3.2rem, 8.5vw, 7.2rem)', lineHeight: 0.95 }}
               >
                 {t.mentalSync.display.syncedHeadline}
               </div>
 
-              <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-amber-300 bg-amber-400 px-7 py-2 font-mono text-2xl font-black text-studio-950 shadow-[0_0_25px_rgba(255,201,51,0.5)]">
-                <Zap className="h-6 w-6 fill-current" />
-                <span>{t.mentalSync.display.pointsAwarded(MENTAL_SYNC_MATCH_POINTS)}</span>
+              <div className="mt-5 rounded-full bg-accent px-7 py-2 font-mono text-2xl font-extrabold text-accent-fg">
+                {t.mentalSync.display.pointsAwarded(MENTAL_SYNC_MATCH_POINTS)}
               </div>
 
               {activeTeam && (
-                <div className="mt-4 font-display text-3xl font-extrabold tracking-widest text-emerald-200 uppercase">
+                <div className="mt-4 font-mono text-base font-bold tracking-[0.18em] text-ink-muted uppercase">
                   {t.mentalSync.display.telepathyConfirmed(activeTeam.name)}
                 </div>
               )}
@@ -203,31 +187,27 @@ export function MentalSyncDisplay() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-40 flex items-center justify-center bg-studio-950/80 backdrop-blur-md"
+            className="fixed inset-0 z-40 flex items-center justify-center bg-canvas/90 backdrop-blur-sm"
           >
             <motion.div
-              initial={{ scale: 0.65, opacity: 0 }}
-              animate={{
-                scale: 1,
-                opacity: 1,
-                x: [0, -14, 14, -10, 10, -4, 4, 0],
-              }}
-              exit={{ scale: 0.85, opacity: 0 }}
-              transition={{ duration: 0.5 }}
-              className="flex flex-col items-center rounded-[2.75rem] border-4 border-rose-500 bg-gradient-to-b from-rose-500/35 via-studio-900/95 to-studio-950/95 px-14 py-12 text-center shadow-[0_0_90px_rgba(255,51,88,0.55)]"
+              initial={{ scale: 0.85, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1, x: [0, -10, 10, -6, 6, 0] }}
+              exit={{ scale: 0.92, opacity: 0 }}
+              transition={{ duration: 0.4 }}
+              className="flex flex-col items-center rounded-3xl border-4 border-err bg-surface px-14 py-12 text-center shadow-2xl"
             >
-              <div className="mb-3 flex h-20 w-20 items-center justify-center rounded-full bg-rose-500 text-white shadow-[0_0_35px_rgba(255,51,88,0.7)]">
-                <XCircle className="h-12 w-12 stroke-[2.8]" />
+              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-err text-err-fg">
+                <X className="h-9 w-9 stroke-[3]" />
               </div>
 
               <div
-                className="font-display font-black tracking-[0.05em] text-rose-400 uppercase drop-shadow-[0_10px_30px_rgba(255,51,88,0.5)]"
-                style={{ fontSize: 'clamp(3.6rem, 9.2vw, 8rem)', lineHeight: 0.92 }}
+                className="font-extrabold tracking-tight text-err uppercase"
+                style={{ fontSize: 'clamp(3.2rem, 8.5vw, 7.2rem)', lineHeight: 0.95 }}
               >
                 {t.mentalSync.display.noMatchHeadline}
               </div>
 
-              <div className="mt-4 rounded-full border border-rose-400/50 bg-rose-500/20 px-7 py-2 font-mono text-2xl font-black text-rose-200">
+              <div className="mt-5 rounded-full border border-err/40 bg-err-soft px-7 py-2 font-mono text-xl font-bold text-err">
                 {t.mentalSync.display.signalLost}
               </div>
             </motion.div>

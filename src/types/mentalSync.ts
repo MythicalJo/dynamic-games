@@ -1,3 +1,4 @@
+import { MENTAL_SYNC_PROMPT_BANK } from '../lib/spanishBank';
 import { createTimerState, normalizeTimerState, type SyncedTimerState } from '../lib/timer';
 
 export const MENTAL_SYNC_MODULE_ID = 'mental-sync';
@@ -26,43 +27,12 @@ export interface MentalSyncState {
   awardedPoints: number;
 }
 
-export const SAMPLE_MENTAL_SYNC_PROMPTS: MentalSyncPrompt[] = [
-  {
-    id: 'ms_1',
-    type: 'who',
-    text: 'Who is more likely to accidentally text the wrong group chat about someone in that chat?',
-  },
-  {
-    id: 'ms_2',
-    type: 'fill',
-    text: 'If we opened a restaurant together, we would name it "________".',
-  },
-  {
-    id: 'ms_3',
-    type: 'who',
-    text: 'Who is more likely to become famous on TikTok for something completely embarrassing?',
-  },
-  {
-    id: 'ms_4',
-    type: 'fill',
-    text: 'The #1 rule of going on a road trip with us is: NEVER ________.',
-  },
-  {
-    id: 'ms_5',
-    type: 'who',
-    text: 'Who is more likely to survive a week stranded on a deserted island?',
-  },
-  {
-    id: 'ms_6',
-    type: 'fill',
-    text: 'Our friendship in a single movie title would be called "________".',
-  },
-];
+export const SAMPLE_MENTAL_SYNC_PROMPTS: MentalSyncPrompt[] = MENTAL_SYNC_PROMPT_BANK;
 
 export function createInitialMentalSyncState(firstTeamId: string | null): MentalSyncState {
   return {
-    prompts: SAMPLE_MENTAL_SYNC_PROMPTS.map((p) => ({ ...p })),
-    selectedPromptId: SAMPLE_MENTAL_SYNC_PROMPTS[0].id,
+    prompts: MENTAL_SYNC_PROMPT_BANK.map((p) => ({ ...p })),
+    selectedPromptId: MENTAL_SYNC_PROMPT_BANK[0]?.id ?? null,
     activeTeamId: firstTeamId,
     timerEnabled: true,
     timer: createTimerState(MENTAL_SYNC_DEFAULT_SECONDS),
@@ -90,7 +60,7 @@ export function normalizeMentalSyncState(
           type: p.type === 'fill' ? 'fill' : 'who',
           text: p.text,
         }))
-    : SAMPLE_MENTAL_SYNC_PROMPTS.map((p) => ({ ...p }));
+    : MENTAL_SYNC_PROMPT_BANK.map((p) => ({ ...p }));
 
   const selectedPromptId =
     typeof obj.selectedPromptId === 'string' && prompts.some((p) => p.id === obj.selectedPromptId)

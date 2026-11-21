@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useShow } from '../../../context/ShowContext';
+import { pickRandomFastMoneyQuestions } from '../../../lib/spanishBank';
 import {
   createDefaultTeamSession,
   createDefaultTimerState,
@@ -11,12 +12,15 @@ import {
   getRoundPointsTotal,
   normalizeFastMoneyState,
   ratingToPoints,
+  roundPhaseFromStage,
   SAMPLE_FAST_MONEY_QUESTIONS,
+  stageFromRoundPhase,
   type FastMoneyPhase,
   type FastMoneyQuestionItem,
   type FastMoneyRoundNumber,
   type FastMoneyRoundSlot,
   type FastMoneyScoreRating,
+  type FastMoneyStage,
   type FastMoneyState,
   type FastMoneyTeamSession,
 } from '../../../types/fastMoney';
@@ -31,10 +35,9 @@ export function useFastMoney() {
     [state.moduleData, fallbackTeamId]
   );
 
-  // Ensure selected team still exists; fall back cleanly if a team was deleted
   const selectedTeam = useMemo(() => {
     if (fmState.selectedTeamId) {
-      const found = state.teams.find((t) => t.id === fmState.selectedTeamId);
+      const found = state.teams.find((tItem) => tItem.id === fmState.selectedTeamId);
       if (found) return found;
     }
     return state.teams[0] ?? null;
@@ -50,8 +53,8 @@ export function useFastMoney() {
   }, [effectiveTeamId, fmState.sessions]);
 
   const activeRoundState = activeSession.rounds[fmState.activeRound];
+  const stage: FastMoneyStage = stageFromRoundPhase(fmState.activeRound, fmState.phase);
 
-  // Live timer clock synced across windows using deterministic timestamp math
   const [remainingMs, setRemainingMs] = useState<number>(() => getLiveRemainingMs(fmState.timer));
   const lastWholeSecRef = useRef<number>(Math.ceil(getLiveRemainingMs(fmState.timer) / 1000));
   const expiredHandledRef = useRef<boolean>(false);
@@ -100,7 +103,8 @@ export function useFastMoney() {
       if (role === 'host' && wholeSec !== lastWholeSecRef.current) {
         lastWholeSecRef.current = wholeSec;
         if (wholeSec > 0 && wholeSec <= 5) {
-          triggerCue('timerTick');
+          // Alterna cada segundo entre "tick" agudo (5, 3, 1) y "tock" grave (4, 2)
+          triggerCue(wholeSec % 2 === 1 ? 'timerTick' : 'timerTock');
         }
       }
 
@@ -162,7 +166,46 @@ export function useFastMoney() {
     }));
   }, [commitSession]);
 
-  // --- Round & Phase Switching ---
+  /** Carga 5 preguntas aleatorias del banco de 40 evitando repetir las usadas recientemente */
+  const loadRandomFiveQuestions = useCallback(() => {
+    if (!effectiveTeamId) return;
+    commit((prev) => {
+      const { selected, nextRecent } = pickRandomFastMoneyQuestions(prev.recentQuestions, 5);
+      const existing = prev.sessions[effectiveTeamId] ?? createDefaultTeamSession(false);
+      return {
+        ...prev,
+        selectedTeamId: effectiveTeamId,
+        recentQuestions: nextRecent,
+        sessions: {
+          ...prev.sessions,
+          [effectiveTeamId]: {
+            ...existing,
+            questions: selected.map((item) => ({
+              question: item.question,
+              playerAAnswer: '',
+              playerBAnswer: '',
+            })),
+          },
+        },
+      };
+    });
+  }, [commit, effectiveTeamId]);
+
+  // --- 4-Phase Sequential Flow Navigation ---
+
+  const setStage = useCallback(
+    (nextStage: FastMoneyStage) => {
+      const { activeRound, phase } = roundPhaseFromStage(nextStage);
+      commit((prev) => ({
+        ...prev,
+        activeRound,
+        phase,
+        timer: createDefaultTimerState(),
+      }));
+      triggerCue('switch');
+    },
+    [commit, triggerCue]
+  );
 
   const setActiveRound = useCallback(
     (round: FastMoneyRoundNumber) => {
@@ -251,7 +294,7 @@ export function useFastMoney() {
     });
   }, [commit]);
 
-  // --- Live Round Input & PASS Controls ---
+  // --- Live Round Input & PASO Controls ---
 
   const setActiveSlotIndex = useCallback(
     (index: number) => {
@@ -270,12 +313,10 @@ export function useFastMoney() {
   );
 
   const findNextSlotIndex = (slots: FastMoneyRoundSlot[], fromIndex: number): number => {
-    // 1. Prefer next 'empty' slot wrapping around
     for (let step = 1; step <= FAST_MONEY_SLOT_COUNT; step++) {
       const idx = (fromIndex + step) % FAST_MONEY_SLOT_COUNT;
       if (slots[idx].status === 'empty') return idx;
     }
-    // 2. Otherwise jump to next 'passed' slot so player can circle back
     for (let step = 1; step <= FAST_MONEY_SLOT_COUNT; step++) {
       const idx = (fromIndex + step) % FAST_MONEY_SLOT_COUNT;
       if (slots[idx].status === 'passed') return idx;
@@ -388,7 +429,6 @@ export function useFastMoney() {
                 idx === index
                   ? {
                       ...slot,
-                      // Revealing the actual answer implies guess is also shown if not already
                       guessRevealed: nextVal ? true : slot.guessRevealed,
                       actualRevealed: nextVal,
                     }
@@ -471,23 +511,57 @@ export function useFastMoney() {
     });
   }, [activeRoundState, adjustTeamScore, commit, effectiveTeamId]);
 
+  const resetTeamSession = useCallback(() => {
+    if (!effectiveTeamId) return;
+    const totalAwarded =
+      getRoundPointsTotal(activeSession.rounds[1]) + getRoundPointsTotal(activeSession.rounds[2]);
+    if (totalAwarded !== 0) {
+      adjustTeamScore(effectiveTeamId, -totalAwarded, { silent: true });
+    }
+    commit((prev) => {
+      const existing = prev.sessions[effectiveTeamId] ?? createDefaultTeamSession(false);
+      return {
+        ...prev,
+        activeRound: 1,
+        phase: 'play',
+        timer: createDefaultTimerState(),
+        sessions: {
+          ...prev.sessions,
+          [effectiveTeamId]: {
+            ...existing,
+            rounds: {
+              1: createEmptyRoundState(),
+              2: createEmptyRoundState(),
+            },
+          },
+        },
+      };
+    });
+  }, [activeSession.rounds, adjustTeamScore, commit, effectiveTeamId]);
+
   const round1Total = getRoundPointsTotal(activeSession.rounds[1]);
   const round2Total = getRoundPointsTotal(activeSession.rounds[2]);
   const activeRoundTotal = fmState.activeRound === 1 ? round1Total : round2Total;
   const combinedTotal = round1Total + round2Total;
 
-  // Player roles for the active round:
-  // Round 1: Player A guesses Player B's secret answers
-  // Round 2: Player B guesses Player A's secret answers
+  const round1AnsweredCount = activeSession.rounds[1].slots.filter(
+    (s) => s.status === 'answered'
+  ).length;
+  const round2AnsweredCount = activeSession.rounds[2].slots.filter(
+    (s) => s.status === 'answered'
+  ).length;
+  const isFinalRevealComplete =
+    stage === 4 && activeSession.rounds[2].slots.every((s) => s.rating !== null);
+
   const guessingPlayerName =
     fmState.activeRound === 1
-      ? selectedTeam?.playerA || 'Player A'
-      : selectedTeam?.playerB || 'Player B';
+      ? selectedTeam?.playerA || 'Jugador A'
+      : selectedTeam?.playerB || 'Jugador B';
 
   const secretOwnerName =
     fmState.activeRound === 1
-      ? selectedTeam?.playerB || 'Player B'
-      : selectedTeam?.playerA || 'Player A';
+      ? selectedTeam?.playerB || 'Jugador B'
+      : selectedTeam?.playerA || 'Jugador A';
 
   const getActualAnswerForRound = useCallback(
     (index: number, round: FastMoneyRoundNumber = fmState.activeRound): string => {
@@ -500,6 +574,7 @@ export function useFastMoney() {
 
   return {
     fmState,
+    stage,
     selectedTeam,
     activeSession,
     activeRoundState,
@@ -508,12 +583,17 @@ export function useFastMoney() {
     round2Total,
     activeRoundTotal,
     combinedTotal,
+    round1AnsweredCount,
+    round2AnsweredCount,
+    isFinalRevealComplete,
     guessingPlayerName,
     secretOwnerName,
     getActualAnswerForRound,
     selectTeam,
     updateQuestionItem,
     loadSampleQuestions,
+    loadRandomFiveQuestions,
+    setStage,
     setActiveRound,
     setPhase,
     startTimer,
@@ -527,5 +607,6 @@ export function useFastMoney() {
     toggleRevealActual,
     scoreSlot,
     resetCurrentRound,
+    resetTeamSession,
   };
 }

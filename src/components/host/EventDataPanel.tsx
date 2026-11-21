@@ -3,9 +3,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Download,
-  FileJson,
   RefreshCw,
-  Sparkles,
   Trash2,
   Upload,
 } from 'lucide-react';
@@ -42,7 +40,7 @@ export function EventDataPanel() {
 
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${slug || 'puntos-rapidos'}-event-${dateStamp}.json`;
+    link.download = `${slug || 'puntos-rapidos'}-${dateStamp}.json`;
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -89,57 +87,50 @@ export function EventDataPanel() {
   return (
     <div className="space-y-6">
       {/* Export / Import Event Data (.json) */}
-      <section className="rounded-2xl border border-amber-400/35 bg-gradient-to-br from-amber-500/10 via-studio-900 to-studio-900 p-5">
-        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+      <section className="rounded-2xl border border-line bg-surface p-6">
+        <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="flex items-center gap-2 font-display text-2xl font-extrabold tracking-wide text-white uppercase">
-              <FileJson className="h-5 w-5 text-amber-400" />
+            <h2 className="text-lg font-bold tracking-tight text-ink">
               {t.eventData.backupTitle}
             </h2>
-            <p className="mt-0.5 text-xs text-slate-300">{t.eventData.backupDesc}</p>
+            <p className="mt-0.5 text-xs text-ink-muted">{t.eventData.backupDesc}</p>
           </div>
-          <span className="rounded-lg border border-white/10 bg-studio-950/80 px-3 py-1 font-mono text-[11px] text-slate-400">
+          <span className="rounded-full border border-line bg-canvas px-3 py-1 font-mono text-[11px] text-ink-subtle">
             {t.eventData.autoSaved(state.schemaVersion)}
           </span>
         </div>
 
-        {/* Summary Stats */}
         <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div className="rounded-xl border border-white/10 bg-studio-950/75 p-3">
-            <div className="font-mono text-[11px] text-slate-400 uppercase">
-              {t.eventData.teamsStat}
-            </div>
-            <div className="mt-1 font-mono text-2xl font-extrabold text-cyan-300">
-              {state.teams.length}
-            </div>
+          <div className="rounded-xl border border-line bg-canvas p-3.5">
+            <div className="text-[11px] font-medium text-ink-subtle">{t.eventData.teamsStat}</div>
+            <div className="mt-1 font-mono text-2xl font-bold text-ink">{state.teams.length}</div>
           </div>
-          <div className="rounded-xl border border-white/10 bg-studio-950/75 p-3">
-            <div className="font-mono text-[11px] text-slate-400 uppercase">
+          <div className="rounded-xl border border-line bg-canvas p-3.5">
+            <div className="text-[11px] font-medium text-ink-subtle">
               {t.eventData.questionsStat}
             </div>
-            <div className="mt-1 font-mono text-2xl font-extrabold text-amber-300">
+            <div className="mt-1 font-mono text-2xl font-bold text-ink">
               {state.questions.length}
             </div>
           </div>
-          <div className="rounded-xl border border-white/10 bg-studio-950/75 p-3">
-            <div className="font-mono text-[11px] text-slate-400 uppercase">
+          <div className="rounded-xl border border-line bg-canvas p-3.5">
+            <div className="text-[11px] font-medium text-ink-subtle">
               {t.eventData.totalPointsStat}
             </div>
-            <div className="mt-1 font-mono text-2xl font-extrabold text-white">
+            <div className="mt-1 font-mono text-2xl font-bold text-ink">
               {state.teams.reduce((sum, item) => sum + item.score, 0).toLocaleString()}
             </div>
           </div>
-          <div className="rounded-xl border border-white/10 bg-studio-950/75 p-3">
-            <div className="font-mono text-[11px] text-slate-400 uppercase">
+          <div className="rounded-xl border border-line bg-canvas p-3.5">
+            <div className="text-[11px] font-medium text-ink-subtle">
               {t.eventData.lastUpdatedStat}
             </div>
-            <div className="mt-1 font-mono text-sm font-bold text-slate-200">
-              {new Date(state.updatedAt).toLocaleTimeString()}
+            <div className="mt-1 font-mono text-sm font-semibold text-ink">
+              {new Date(state.updatedAt).toLocaleTimeString('es-ES')}
             </div>
           </div>
         </div>
 
-        {/* Primary Export / Import Buttons */}
         <div
           onDragOver={(e) => {
             e.preventDefault();
@@ -151,25 +142,25 @@ export function EventDataPanel() {
             setIsDraggingFile(false);
             handleFileImport(e.dataTransfer.files?.[0]);
           }}
-          className={`grid grid-cols-1 gap-3 rounded-2xl transition sm:grid-cols-2 ${
-            isDraggingFile ? 'ring-2 ring-cyan-400 ring-offset-4 ring-offset-studio-900' : ''
+          className={`grid grid-cols-1 gap-3 rounded-xl transition sm:grid-cols-2 ${
+            isDraggingFile ? 'ring-2 ring-accent ring-offset-4 ring-offset-surface' : ''
           }`}
         >
           <button
             type="button"
             onClick={handleExport}
-            className="flex items-center justify-center gap-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 px-5 py-3.5 text-sm font-extrabold text-studio-950 shadow-[0_0_24px_rgba(255,201,51,0.28)] transition hover:brightness-110 active:scale-[0.99]"
+            className="flex items-center justify-center gap-2 rounded-xl bg-accent px-5 py-3 text-sm font-bold text-accent-fg transition hover:opacity-90 active:scale-[0.99]"
           >
-            <Download className="h-5 w-5 stroke-[2.5]" />
+            <Download className="h-4 w-4" />
             <span>{t.eventData.exportBtn}</span>
           </button>
 
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="flex items-center justify-center gap-2.5 rounded-xl border border-cyan-400/60 bg-cyan-400/15 px-5 py-3.5 text-sm font-extrabold text-cyan-100 transition hover:bg-cyan-400/25 active:scale-[0.99]"
+            className="flex items-center justify-center gap-2 rounded-xl border border-line-strong bg-canvas px-5 py-3 text-sm font-bold text-ink transition hover:bg-surface-2 active:scale-[0.99]"
           >
-            <Upload className="h-5 w-5 stroke-[2.5]" />
+            <Upload className="h-4 w-4" />
             <span>{isDraggingFile ? t.eventData.dropJson : t.eventData.importBtn}</span>
           </button>
 
@@ -184,16 +175,16 @@ export function EventDataPanel() {
 
         {statusMessage && (
           <div
-            className={`mt-4 flex items-center gap-2.5 rounded-xl border px-4 py-3 text-xs font-semibold ${
+            className={`mt-4 flex items-center gap-2 rounded-xl border px-4 py-3 text-xs font-semibold ${
               statusMessage.type === 'success'
-                ? 'border-emerald-400/40 bg-emerald-400/12 text-emerald-200'
-                : 'border-rose-400/45 bg-rose-500/15 text-rose-200'
+                ? 'border-ok/35 bg-ok-soft text-ok'
+                : 'border-err/35 bg-err-soft text-err'
             }`}
           >
             {statusMessage.type === 'success' ? (
-              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
             ) : (
-              <AlertCircle className="h-4 w-4 shrink-0 text-rose-400" />
+              <AlertCircle className="h-4 w-4 shrink-0" />
             )}
             <span>{statusMessage.text}</span>
           </div>
@@ -201,74 +192,69 @@ export function EventDataPanel() {
       </section>
 
       {/* Show Branding & Lobby Screen Text */}
-      <section className="rounded-2xl border border-white/10 bg-studio-900/85 p-5">
-        <div className="mb-4 flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-cyan-400" />
-          <div>
-            <h2 className="font-display text-2xl font-extrabold tracking-wide text-white uppercase">
-              {t.eventData.brandingTitle}
-            </h2>
-            <p className="text-xs text-slate-400">{t.eventData.brandingDesc}</p>
-          </div>
+      <section className="rounded-2xl border border-line bg-surface p-6">
+        <div className="mb-5">
+          <h2 className="text-lg font-bold tracking-tight text-ink">
+            {t.eventData.brandingTitle}
+          </h2>
+          <p className="mt-0.5 text-xs text-ink-muted">{t.eventData.brandingDesc}</p>
         </div>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
-            <label className="mb-1.5 block text-xs font-bold tracking-wider text-slate-300 uppercase">
+            <label className="mb-1.5 block text-xs font-semibold text-ink-muted">
               {t.eventData.showTitleLabel}
             </label>
             <input
               type="text"
               value={state.eventMeta.title}
               onChange={(e) => updateEventMeta({ title: e.target.value })}
-              className="w-full rounded-xl border border-white/15 bg-studio-950 px-3.5 py-2.5 text-sm font-bold text-white outline-none focus:border-cyan-400"
+              className="w-full rounded-xl border border-line bg-canvas px-3.5 py-2.5 text-sm font-semibold text-ink outline-none focus:border-accent"
             />
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-bold tracking-wider text-slate-300 uppercase">
+            <label className="mb-1.5 block text-xs font-semibold text-ink-muted">
               {t.eventData.topBadgeLabel}
             </label>
             <input
               type="text"
               value={state.eventMeta.subtitle}
               onChange={(e) => updateEventMeta({ subtitle: e.target.value })}
-              className="w-full rounded-xl border border-white/15 bg-studio-950 px-3.5 py-2.5 text-sm font-semibold text-white outline-none focus:border-cyan-400"
+              className="w-full rounded-xl border border-line bg-canvas px-3.5 py-2.5 text-sm text-ink outline-none focus:border-accent"
             />
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-bold tracking-wider text-slate-300 uppercase">
+            <label className="mb-1.5 block text-xs font-semibold text-ink-muted">
               {t.eventData.taglineLabel}
             </label>
             <input
               type="text"
               value={state.eventMeta.tagline}
               onChange={(e) => updateEventMeta({ tagline: e.target.value })}
-              className="w-full rounded-xl border border-white/15 bg-studio-950 px-3.5 py-2.5 text-sm font-semibold text-white outline-none focus:border-cyan-400"
+              className="w-full rounded-xl border border-line bg-canvas px-3.5 py-2.5 text-sm text-ink outline-none focus:border-accent"
             />
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-bold tracking-wider text-slate-300 uppercase">
+            <label className="mb-1.5 block text-xs font-semibold text-ink-muted">
               {t.eventData.lobbyStatusLabel}
             </label>
             <input
               type="text"
               value={state.eventMeta.lobbyMessage}
               onChange={(e) => updateEventMeta({ lobbyMessage: e.target.value })}
-              className="w-full rounded-xl border border-white/15 bg-studio-950 px-3.5 py-2.5 text-sm font-semibold text-white outline-none focus:border-cyan-400"
+              className="w-full rounded-xl border border-line bg-canvas px-3.5 py-2.5 text-sm text-ink outline-none focus:border-accent"
             />
           </div>
         </div>
       </section>
 
       {/* Session Utilities */}
-      <section className="rounded-2xl border border-white/10 bg-studio-900/85 p-5">
-        <h3 className="font-display text-xl font-extrabold tracking-wide text-white uppercase">
-          {t.eventData.sessionTitle}
-        </h3>
-        <p className="mt-1 text-xs text-slate-400">{t.eventData.sessionDesc}</p>
+      <section className="rounded-2xl border border-line bg-surface p-6">
+        <h3 className="text-base font-bold text-ink">{t.eventData.sessionTitle}</h3>
+        <p className="mt-0.5 text-xs text-ink-muted">{t.eventData.sessionDesc}</p>
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <button
@@ -281,17 +267,15 @@ export function EventDataPanel() {
                 text: t.eventData.loadedDemoMsg,
               });
             }}
-            className="flex items-center gap-2 rounded-xl border border-cyan-400/40 bg-cyan-400/12 px-4 py-2.5 text-xs font-bold text-cyan-200 transition hover:bg-cyan-400/20"
+            className="inline-flex items-center gap-2 rounded-xl border border-line-strong bg-canvas px-4 py-2 text-xs font-semibold text-ink transition hover:bg-surface-2"
           >
-            <RefreshCw className="h-4 w-4" />
+            <RefreshCw className="h-3.5 w-3.5" />
             {t.eventData.loadDemoBtn}
           </button>
 
           {confirmClear ? (
-            <div className="flex items-center gap-2 rounded-xl border border-rose-500/50 bg-rose-500/15 px-3.5 py-2">
-              <span className="text-xs font-bold text-rose-200">
-                {t.eventData.clearConfirmText}
-              </span>
+            <div className="flex items-center gap-2 rounded-xl border border-err/40 bg-err-soft px-3.5 py-2">
+              <span className="text-xs font-semibold text-err">{t.eventData.clearConfirmText}</span>
               <button
                 type="button"
                 onClick={() => {
@@ -302,14 +286,14 @@ export function EventDataPanel() {
                     text: t.eventData.clearedMsg,
                   });
                 }}
-                className="rounded-lg bg-rose-500 px-3 py-1 text-xs font-extrabold text-white hover:bg-rose-400"
+                className="rounded-lg bg-err px-3 py-1 text-xs font-bold text-err-fg"
               >
                 {t.eventData.yesClearAll}
               </button>
               <button
                 type="button"
                 onClick={() => setConfirmClear(false)}
-                className="rounded-lg border border-white/15 px-2.5 py-1 text-xs font-bold text-slate-300 hover:bg-white/10"
+                className="rounded-lg border border-line bg-canvas px-2.5 py-1 text-xs font-medium text-ink-muted"
               >
                 {t.common.cancel}
               </button>
@@ -318,9 +302,9 @@ export function EventDataPanel() {
             <button
               type="button"
               onClick={() => setConfirmClear(true)}
-              className="flex items-center gap-2 rounded-xl border border-rose-500/35 bg-rose-500/10 px-4 py-2.5 text-xs font-bold text-rose-300 transition hover:bg-rose-500/20"
+              className="inline-flex items-center gap-2 rounded-xl border border-err/35 bg-err-soft px-4 py-2 text-xs font-semibold text-err transition hover:opacity-90"
             >
-              <Trash2 className="h-4 w-4" />
+              <Trash2 className="h-3.5 w-3.5" />
               {t.eventData.clearAllBtn}
             </button>
           )}

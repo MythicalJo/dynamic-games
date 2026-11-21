@@ -1,11 +1,12 @@
-import { ExternalLink, Languages, Monitor, Sliders, Sparkles, Zap } from 'lucide-react';
+import { ArrowUpRight, ExternalLink, Monitor, Sliders } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ShowProvider, useShow } from '../context/ShowContext';
 import { getDisplayWindowUrl } from '../lib/i18n';
+import { THEMES } from '../types/show';
 
 function LandingContent() {
   const navigate = useNavigate();
-  const { language, setLanguage, t } = useShow();
+  const { theme, setTheme, t } = useShow();
 
   const launchDualScreen = () => {
     window.open(
@@ -17,93 +18,95 @@ function LandingContent() {
   };
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden studio-stage-glow px-6 py-14 text-white">
-      <div className="pointer-events-none absolute inset-0 studio-grid-bg opacity-65" />
-      <div className="pointer-events-none absolute -top-32 left-1/2 h-[30rem] w-[60rem] -translate-x-1/2 rounded-full bg-cyan-500/15 blur-[120px]" />
-
-      {/* Top-Right Language Switcher */}
-      <div className="fixed top-5 right-5 z-20 flex items-center gap-1 rounded-xl border border-white/15 bg-studio-900/90 p-1 backdrop-blur-md">
-        <Languages className="mx-1.5 h-4 w-4 text-cyan-300" />
-        <button
-          type="button"
-          onClick={() => setLanguage('es')}
-          className={`rounded-lg px-2.5 py-1 font-mono text-xs font-extrabold transition ${
-            language === 'es'
-              ? 'bg-amber-400 text-studio-950'
-              : 'text-slate-300 hover:text-white'
-          }`}
-        >
-          ES
-        </button>
-        <button
-          type="button"
-          onClick={() => setLanguage('en')}
-          className={`rounded-lg px-2.5 py-1 font-mono text-xs font-extrabold transition ${
-            language === 'en'
-              ? 'bg-cyan-400 text-studio-950'
-              : 'text-slate-300 hover:text-white'
-          }`}
-        >
-          EN
-        </button>
-      </div>
-
-      <div className="relative z-10 flex w-full max-w-4xl flex-col items-center text-center">
-        <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-cyan-400/40 bg-studio-900/80 px-5 py-1.5 backdrop-blur-md">
-          <Sparkles className="h-4 w-4 text-amber-300" />
-          <span className="font-mono text-xs font-bold tracking-[0.25em] text-cyan-300 uppercase">
-            {t.landing.badge}
-          </span>
+    <div className="flex min-h-screen flex-col bg-canvas text-ink">
+      {/* Minimal Top Bar */}
+      <header className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-6">
+        <div className="flex items-center gap-2.5">
+          <span className="h-2.5 w-2.5 rounded-full bg-accent" />
+          <span className="text-sm font-bold tracking-tight uppercase">Puntos Rápidos</span>
         </div>
 
+        {/* 4 Minimalist Theme Swatches */}
+        <div className="flex items-center gap-1 rounded-full border border-line bg-surface p-1">
+          {THEMES.map((item) => {
+            const active = theme === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setTheme(item.id)}
+                className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition ${
+                  active
+                    ? 'bg-ink text-canvas'
+                    : 'text-ink-muted hover:text-ink'
+                }`}
+              >
+                <span
+                  className="h-2.5 w-2.5 rounded-full border border-black/15"
+                  style={{ backgroundColor: item.bgSwatch }}
+                />
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </header>
+
+      {/* Main Centered Editorial Hero */}
+      <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col items-center justify-center px-6 py-12 text-center">
+        <span className="inline-flex items-center rounded-full border border-line bg-surface px-3.5 py-1 font-mono text-[11px] font-semibold tracking-[0.16em] text-ink-muted uppercase">
+          {t.landing.badge}
+        </span>
+
         <h1
-          className="font-display font-black uppercase tracking-wide text-gradient-gold drop-shadow-[0_10px_30px_rgba(245,168,0,0.3)]"
-          style={{ fontSize: 'clamp(3.2rem, 8vw, 6.5rem)', lineHeight: 0.95 }}
+          className="mt-6 font-extrabold tracking-tight text-ink"
+          style={{ fontSize: 'clamp(2.8rem, 7vw, 5.2rem)', lineHeight: 0.98 }}
         >
           PUNTOS RÁPIDOS
         </h1>
 
-        <p className="mt-4 max-w-2xl text-base text-slate-300 md:text-lg">
+        <p className="mt-5 max-w-xl text-base leading-relaxed text-ink-muted md:text-lg">
           {t.landing.descriptionPrefix}
-          <code className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-cyan-300">/#/host</code>
+          <code className="rounded border border-line bg-surface px-1.5 py-0.5 font-mono text-xs text-ink">
+            /#/host
+          </code>
           {t.landing.descriptionMiddle}
-          <code className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-amber-300">/#/display</code>
+          <code className="rounded border border-line bg-surface px-1.5 py-0.5 font-mono text-xs text-ink">
+            /#/display
+          </code>
           {t.landing.descriptionSuffix}
         </p>
 
-        {/* Primary 1-Click Dual-Window Launcher */}
         <button
           type="button"
           onClick={launchDualScreen}
-          className="mt-8 inline-flex items-center gap-2.5 rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 px-8 py-4 text-base font-extrabold text-studio-950 shadow-[0_0_32px_rgba(255,201,51,0.38)] transition hover:scale-[1.02] hover:brightness-110 active:scale-[0.99]"
+          className="mt-8 inline-flex items-center gap-2 rounded-full bg-accent px-7 py-3.5 text-sm font-bold text-accent-fg transition hover:opacity-90 active:scale-[0.99]"
         >
-          <Zap className="h-5 w-5 stroke-[2.5]" />
           <span>{t.landing.launchDualBtn}</span>
+          <ArrowUpRight className="h-4 w-4" />
         </button>
 
-        {/* Individual Window Cards */}
-        <div className="mt-8 grid w-full grid-cols-1 gap-5 md:grid-cols-2">
+        {/* Two Clean Window Cards */}
+        <div className="mt-12 grid w-full grid-cols-1 gap-4 md:grid-cols-2">
           <Link
             to="/host"
-            className="group flex flex-col justify-between rounded-3xl border border-cyan-400/35 bg-studio-900/80 p-7 text-left backdrop-blur-xl transition hover:border-cyan-400 hover:bg-studio-850/90 glow-cyan"
+            className="group flex flex-col justify-between rounded-2xl border border-line bg-surface p-7 text-left transition hover:border-line-strong"
           >
             <div>
               <div className="flex items-center justify-between">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-400/15 text-cyan-300">
-                  <Sliders className="h-6 w-6" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-line bg-canvas text-accent">
+                  <Sliders className="h-5 w-5" />
                 </div>
-                <span className="rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 font-mono text-xs font-bold text-cyan-200">
-                  /#/host
-                </span>
+                <span className="font-mono text-xs font-medium text-ink-subtle">/#/host</span>
               </div>
-              <h2 className="mt-5 font-display text-3xl font-black tracking-wide text-white uppercase">
+              <h2 className="mt-5 text-xl font-bold tracking-tight text-ink">
                 {t.landing.hostCardTitle}
               </h2>
-              <p className="mt-2 text-sm leading-relaxed text-slate-300">
+              <p className="mt-2 text-sm leading-relaxed text-ink-muted">
                 {t.landing.hostCardDesc}
               </p>
             </div>
-            <div className="mt-6 inline-flex items-center gap-2 text-sm font-extrabold text-cyan-300 transition group-hover:translate-x-1">
+            <div className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-accent transition group-hover:translate-x-0.5">
               <span>{t.landing.hostCardCta}</span>
               <span>→</span>
             </div>
@@ -113,31 +116,29 @@ function LandingContent() {
             to="/display"
             target="_blank"
             rel="noopener noreferrer"
-            className="group flex flex-col justify-between rounded-3xl border border-amber-400/35 bg-studio-900/80 p-7 text-left backdrop-blur-xl transition hover:border-amber-400 hover:bg-studio-850/90 glow-gold"
+            className="group flex flex-col justify-between rounded-2xl border border-line bg-surface p-7 text-left transition hover:border-line-strong"
           >
             <div>
               <div className="flex items-center justify-between">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-400/15 text-amber-300">
-                  <Monitor className="h-6 w-6" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-line bg-canvas text-ink">
+                  <Monitor className="h-5 w-5" />
                 </div>
-                <span className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-1 font-mono text-xs font-bold text-amber-200">
-                  /#/display
-                </span>
+                <span className="font-mono text-xs font-medium text-ink-subtle">/#/display</span>
               </div>
-              <h2 className="mt-5 font-display text-3xl font-black tracking-wide text-white uppercase">
+              <h2 className="mt-5 text-xl font-bold tracking-tight text-ink">
                 {t.landing.displayCardTitle}
               </h2>
-              <p className="mt-2 text-sm leading-relaxed text-slate-300">
+              <p className="mt-2 text-sm leading-relaxed text-ink-muted">
                 {t.landing.displayCardDesc}
               </p>
             </div>
-            <div className="mt-6 inline-flex items-center gap-2 text-sm font-extrabold text-amber-300 transition group-hover:translate-x-1">
+            <div className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-ink transition group-hover:translate-x-0.5">
               <span>{t.landing.displayCardCta}</span>
-              <ExternalLink className="h-4 w-4" />
+              <ExternalLink className="h-3.5 w-3.5" />
             </div>
           </Link>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

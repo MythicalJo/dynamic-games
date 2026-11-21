@@ -1,5 +1,12 @@
 import { createId, createInitialShowState, parseImportedShowState } from './defaults';
-import type { ClientRole, ScoreFlash, ShowState, SoundCue, SyncMessage } from '../types/show';
+import type {
+  ClientRole,
+  MusicControlPayload,
+  ScoreFlash,
+  ShowState,
+  SoundCue,
+  SyncMessage,
+} from '../types/show';
 
 export const STORAGE_KEY = 'puntos_rapidos_state_v1';
 export const EVENT_BRIDGE_KEY = 'puntos_rapidos_event_v1';
@@ -11,6 +18,14 @@ export interface PeerInfo {
   role: ClientRole;
   lastSeen: number;
   audioUnlocked?: boolean;
+}
+
+export interface IncomingMusicTrack {
+  trackId: string;
+  name: string;
+  mimeType: string;
+  buffer: ArrayBuffer;
+  control: MusicControlPayload;
 }
 
 export function loadPersistedState(): ShowState {
@@ -36,7 +51,7 @@ export function savePersistedState(state: ShowState): void {
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch {
-    // Ignore storage quota errors in private browsing
+    // Ignorar errores de cuota en modo privado
   }
 }
 
@@ -47,6 +62,9 @@ export interface SyncClientOptions {
   onStateRequested: () => void;
   onScoreFlash: (flash: ScoreFlash) => void;
   onSoundCue: (cue: SoundCue) => void;
+  onMusicTrackReceived?: (track: IncomingMusicTrack) => void;
+  onMusicControlReceived?: (control: MusicControlPayload) => void;
+  onMusicRequested?: () => void;
   onPeersChanged: (peers: Record<string, PeerInfo>) => void;
 }
 
@@ -86,6 +104,13 @@ export class ShowSyncClient {
       senderId: this.clientId,
       role: this.role,
     });
+
+    if (this.role === 'display' && this.channel) {
+      this.channel.postMessage({
+        type: 'MUSIC_REQUEST',
+        senderId: this.clientId,
+      } satisfies SyncMessage);
+    }
 
     this.heartbeatTimer = window.setInterval(() => {
       this.sendHeartbeat();
@@ -133,7 +158,7 @@ export class ShowSyncClient {
           );
         }
       } catch {
-        // Ignore invalid storage payload
+        // Ignorar carga inválida
       }
       return;
     }
@@ -143,7 +168,7 @@ export class ShowSyncClient {
         const msg = JSON.parse(event.newValue) as SyncMessage;
         this.handleMessage(msg);
       } catch {
-        // Ignore invalid bridge payload
+        // Ignorar mensaje inválido
       }
     }
   };
@@ -169,6 +194,21 @@ export class ShowSyncClient {
         break;
       case 'SOUND_CUE':
         this.options.onSoundCue(msg.cue);
+        break;
+      case 'MUSIC_TRACK_DATA':
+        this.options.onMusicTrackReceived?.({
+          trackId: msg.trackId,
+          name: msg.name,
+          mimeType: msg.mimeType,
+          buffer: msg.buffer,
+          control: msg.control,
+        });
+        break;
+      case 'MUSIC_CONTROL':
+        this.options.onMusicControlReceived?.(msg.control);
+        break;
+      case 'MUSIC_REQUEST':
+        this.options.onMusicRequested?.();
         break;
       case 'HEARTBEAT':
         this.touchPeer(msg.senderId, msg.role, msg.audioUnlocked);
@@ -198,13 +238,17 @@ export class ShowSyncClient {
         this.channel.postMessage(msg);
         return;
       } catch {
-        // Fall through to localStorage bridge
+        // Fallback a localStorage para mensajes livianos
       }
+    }
+    if (msg.type === 'MUSIC_TRACK_DATA') {
+      // Nunca guardar archivos binarios de audio en localStorage
+      return;
     }
     try {
       window.localStorage.setItem(EVENT_BRIDGE_KEY, JSON.stringify({ ...msg, _nonce: Math.random() }));
     } catch {
-      // Ignore storage errors
+      // Ignorar errores de cuota
     }
   }
 
@@ -241,6 +285,40 @@ export class ShowSyncClient {
       type: 'SOUND_CUE',
       senderId: this.clientId,
       cue,
+    });
+  }
+
+  /**
+   * Envía el ArrayBuffer del archivo de audio directamente por BroadcastChannel (sin tocar localStorage).
+   */
+  broadcastMusicTrack(payload: {
+    trackId: string;
+    name: string;
+    mimeType: string;
+    buffer: ArrayBuffer;
+    control: MusicControlPayload;
+  }) {
+    if (!this.channel) return;
+    try {
+      this.channel.postMessage({
+        type: 'MUSIC_TRACK_DATA',
+        senderId: this.clientId,
+        trackId: payload.trackId,
+        name: payload.name,
+        mimeType: payload.mimeType,
+        buffer: payload.buffer,
+        control: payload.control,
+      } satisfies SyncMessage);
+    } catch {
+      // Ignorar si la ventana cerró el canal
+    }
+  }
+
+  broadcastMusicControl(control: MusicControlPayload) {
+    this.sendMessage({
+      type: 'MUSIC_CONTROL',
+      senderId: this.clientId,
+      control,
     });
   }
 

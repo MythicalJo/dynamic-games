@@ -1,9 +1,19 @@
+import { FAST_MONEY_QUESTION_BANK } from '../lib/spanishBank';
+
 export const FAST_MONEY_MODULE_ID = 'friend-fast-money';
 export const FAST_MONEY_SLOT_COUNT = 5;
 export const FAST_MONEY_DEFAULT_SECONDS = 30;
 
 export type FastMoneyRoundNumber = 1 | 2;
 export type FastMoneyPhase = 'play' | 'reveal';
+/**
+ * Flujo secuencial de 4 fases:
+ * 1: Ronda 1 (Jugador A adivina a Jugador B) — 30s
+ * 2: Ronda 2 (Jugador B adivina a Jugador A) — 30s
+ * 3: Revelación 1 (Jugador A sobre Jugador B)
+ * 4: Revelación 2 (Jugador B sobre Jugador A + Gran Total)
+ */
+export type FastMoneyStage = 1 | 2 | 3 | 4;
 export type FastMoneySlotStatus = 'empty' | 'answered' | 'passed';
 export type FastMoneyScoreRating = 'exact' | 'close' | 'miss' | null;
 
@@ -48,35 +58,61 @@ export interface FastMoneyState {
   phase: FastMoneyPhase;
   timer: FastMoneyTimerState;
   sessions: Record<string, FastMoneyTeamSession>;
+  /** Historial de preguntas usadas recientemente para evitar repeticiones al cargar 5 al azar */
+  recentQuestions: string[];
 }
 
 export const SAMPLE_FAST_MONEY_QUESTIONS: FastMoneyQuestionItem[] = [
   {
-    question: 'Go-to late-night fast food order?',
-    playerAAnswer: 'Taco Bell Crunchwrap',
-    playerBAnswer: 'Spicy chicken nuggets & fries',
+    question: FAST_MONEY_QUESTION_BANK[0].question,
+    playerAAnswer: 'Tacos al pastor con todo',
+    playerBAnswer: 'Sushi o alitas picantes',
   },
   {
-    question: 'Dream vacation destination?',
-    playerAAnswer: 'Tokyo, Japan',
-    playerBAnswer: 'Amalfi Coast, Italy',
+    question: FAST_MONEY_QUESTION_BANK[7].question,
+    playerAAnswer: 'Revisar el celular sin levantarse',
+    playerBAnswer: 'Apagar tres alarmas y dormir 5 min más',
   },
   {
-    question: 'Biggest pet peeve?',
-    playerAAnswer: 'Loud chewing',
-    playerBAnswer: 'People being late without texting',
+    question: FAST_MONEY_QUESTION_BANK[27].question,
+    playerAAnswer: 'Las cucarachas voladoras',
+    playerBAnswer: 'Quedarse encerrado en un elevador',
   },
   {
-    question: 'Go-to karaoke song?',
-    playerAAnswer: 'Mr. Brightside',
-    playerBAnswer: 'Since U Been Gone',
+    question: FAST_MONEY_QUESTION_BANK[8].question,
+    playerAAnswer: '«Me sentí mal del estómago»',
+    playerBAnswer: '«Se me juntó un pendiente familiar»',
   },
   {
-    question: 'Movie they have rewatched the most?',
-    playerAAnswer: 'Spider-Man: Into the Spider-Verse',
-    playerBAnswer: 'Shrek 2',
+    question: FAST_MONEY_QUESTION_BANK[20].question,
+    playerAAnswer: 'Lamento Boliviano',
+    playerBAnswer: 'Rosa Pastel',
   },
 ];
+
+export function stageFromRoundPhase(
+  round: FastMoneyRoundNumber,
+  phase: FastMoneyPhase
+): FastMoneyStage {
+  if (phase === 'play') return round === 1 ? 1 : 2;
+  return round === 1 ? 3 : 4;
+}
+
+export function roundPhaseFromStage(stage: FastMoneyStage): {
+  activeRound: FastMoneyRoundNumber;
+  phase: FastMoneyPhase;
+} {
+  switch (stage) {
+    case 1:
+      return { activeRound: 1, phase: 'play' };
+    case 2:
+      return { activeRound: 2, phase: 'play' };
+    case 3:
+      return { activeRound: 1, phase: 'reveal' };
+    case 4:
+      return { activeRound: 2, phase: 'reveal' };
+  }
+}
 
 export function createEmptySlot(): FastMoneyRoundSlot {
   return {
@@ -109,7 +145,7 @@ export function createDefaultTeamSession(withSample = false): FastMoneyTeamSessi
   const questions: FastMoneyQuestionItem[] = withSample
     ? SAMPLE_FAST_MONEY_QUESTIONS.map((q) => ({ ...q }))
     : Array.from({ length: FAST_MONEY_SLOT_COUNT }, (_, idx) => ({
-        question: SAMPLE_FAST_MONEY_QUESTIONS[idx]?.question ?? `Question ${idx + 1}`,
+        question: SAMPLE_FAST_MONEY_QUESTIONS[idx]?.question ?? `Pregunta ${idx + 1}`,
         playerAAnswer: '',
         playerBAnswer: '',
       }));
@@ -134,6 +170,7 @@ export function createInitialFastMoneyState(firstTeamId: string | null): FastMon
     phase: 'play',
     timer: createDefaultTimerState(),
     sessions,
+    recentQuestions: SAMPLE_FAST_MONEY_QUESTIONS.map((q) => q.question),
   };
 }
 
@@ -230,12 +267,17 @@ export function normalizeFastMoneyState(
     }
   }
 
+  const recentQuestions = Array.isArray(obj.recentQuestions)
+    ? obj.recentQuestions.filter((item): item is string => typeof item === 'string')
+    : [];
+
   return {
     selectedTeamId,
     activeRound,
     phase,
     timer,
     sessions,
+    recentQuestions,
   };
 }
 

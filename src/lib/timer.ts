@@ -80,7 +80,8 @@ export function useSyncedTimer({ timer, role, triggerCue, onExpire }: UseSyncedT
       if (role === 'host' && wholeSec !== lastSecRef.current) {
         lastSecRef.current = wholeSec;
         if (wholeSec > 0 && wholeSec <= 5) {
-          triggerCue('timerTick');
+          // Alterna cada segundo entre "tick" agudo (5, 3, 1) y "tock" grave (4, 2)
+          triggerCue(wholeSec % 2 === 1 ? 'timerTick' : 'timerTock');
         }
       }
 

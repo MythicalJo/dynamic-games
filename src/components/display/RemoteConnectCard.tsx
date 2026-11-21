@@ -1,7 +1,7 @@
 import { QRCodeSVG } from 'qrcode.react';
 import { QrCode, RefreshCw, Smartphone, X } from 'lucide-react';
 import { useShow } from '../../context/ShowContext';
-import { getRemoteHostUrl } from '../../lib/peerSync';
+import { getRemoteHostUrl } from '../../lib/mqttSync';
 
 interface RemoteConnectCardProps {
   expanded: boolean;
@@ -19,7 +19,8 @@ export function RemoteConnectCard({
   if (!roomCode) return null;
 
   const remoteUrl = getRemoteHostUrl(roomCode);
-  const isConnected = remoteConnectedCount > 0;
+  const isBrokerConnected = remoteStatus === 'connected';
+  const hasRemoteHost = remoteConnectedCount > 0;
 
   if (!expanded) {
     if (!showCornerBadgeWhenCollapsed) return null;
@@ -33,7 +34,7 @@ export function RemoteConnectCard({
         >
           <span
             className={`h-2 w-2 rounded-full ${
-              isConnected ? 'bg-ok' : remoteStatus === 'ready' ? 'bg-accent' : 'bg-warn'
+              isBrokerConnected ? 'bg-ok' : remoteStatus === 'error' ? 'bg-err' : 'bg-warn'
             }`}
           />
           <QrCode className="h-3.5 w-3.5 text-ink-muted" />
@@ -89,22 +90,20 @@ export function RemoteConnectCard({
       <div className="mt-3 flex items-center justify-center gap-1.5 rounded-xl border border-line bg-canvas px-2.5 py-1.5 text-[11px] font-semibold">
         <span
           className={`h-2 w-2 rounded-full ${
-            isConnected
+            isBrokerConnected
               ? 'bg-ok'
-              : remoteStatus === 'ready'
-                ? 'bg-accent'
-                : remoteStatus === 'error'
-                  ? 'bg-err'
-                  : 'animate-pulse bg-warn'
+              : remoteStatus === 'error'
+                ? 'bg-err'
+                : 'animate-pulse bg-warn'
           }`}
         />
-        <span className={isConnected ? 'text-ok' : 'text-ink-muted'}>
-          {isConnected
-            ? `Conectado ✓ (${remoteConnectedCount})`
-            : remoteStatus === 'ready'
-              ? 'Escanea con tu celular'
+        <span className={isBrokerConnected ? 'text-ok' : 'text-ink-muted'}>
+          {hasRemoteHost
+            ? `Conectado ✓ (${remoteConnectedCount} celular${remoteConnectedCount > 1 ? 'es' : ''})`
+            : isBrokerConnected
+              ? 'Conectado ✓ · Escanea el QR'
               : remoteStatus === 'error'
-                ? 'Sin señal P2P'
+                ? 'Sin conexión remota'
                 : 'Conectando sala...'}
         </span>
       </div>

@@ -16,7 +16,7 @@ export default defineConfig({
           react: ['react', 'react-dom', 'react-router-dom'],
           motion: ['framer-motion'],
           icons: ['lucide-react'],
-          peer: ['peerjs', 'qrcode.react'],
+          remote: ['mqtt', 'qrcode.react'],
         },
       },
     },

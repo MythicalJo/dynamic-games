@@ -2,14 +2,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Link2, Smartphone, Unlink, Wifi } from 'lucide-react';
 import { useShow } from '../../context/ShowContext';
-import { normalizeRoomCode } from '../../lib/peerSync';
+import { normalizeRoomCode } from '../../lib/mqttSync';
 
 export function RemoteConnectBar() {
   const {
     roomCode,
     remoteStatus,
     remoteError,
-    remoteConnectedCount,
     localConnectedDisplays,
     connectRemoteRoom,
     disconnectRemoteRoom,
@@ -43,7 +42,8 @@ export function RemoteConnectBar() {
     }
   }, [searchParams, connectRemoteRoom]);
 
-  const isRemoteConnected = remoteStatus === 'connected' && remoteConnectedCount > 0;
+  // Muestra "Conectado ✓" tan pronto client.connected sea true en MQTT
+  const isRemoteConnected = remoteStatus === 'connected';
   const isConnecting = remoteStatus === 'connecting' || remoteStatus === 'reconnecting';
   const isLocalOnly = !isRemoteConnected && !isConnecting && localConnectedDisplays > 0;
 

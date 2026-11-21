@@ -10,10 +10,11 @@ import { TRANSLATIONS, type Translations } from '../lib/i18n';
 import {
   getOrCreateDisplayRoomCode,
   loadLastHostRoomCode,
+  mqttManager,
   normalizeRoomCode,
-  peerManager,
-  type PeerSyncHandlers,
-} from '../lib/peerSync';
+  type MqttSyncHandlers,
+  type RemotePeerPresence,
+} from '../lib/mqttSync';
 import { loadPersistedState, ShowSyncClient, type PeerInfo, type SyncTransport } from '../lib/sync';
 import {
   ACCENT_ORDER,
@@ -139,7 +140,7 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
   const [transport, setTransport] = useState<SyncTransport>('broadcast-channel');
   const [recentFlashes, setRecentFlashes] = useState<ScoreFlash[]>([]);
 
-  // Cross-device PeerJS state
+  // Cross-device MQTT over WebSockets state
   const [roomCode, setRoomCode] = useState<string>(() =>
     role === 'display' ? getOrCreateDisplayRoomCode() : loadLastHostRoomCode()
   );
@@ -147,8 +148,7 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
     role === 'display' ? 'connecting' : 'disconnected'
   );
   const [remoteError, setRemoteError] = useState<string | null>(null);
-  const [remoteConnectedCount, setRemoteConnectedCount] = useState<number>(0);
-  const [remoteDisplayAudioReady, setRemoteDisplayAudioReady] = useState<boolean>(false);
+  const [remotePeers, setRemotePeers] = useState<Record<string, RemotePeerPresence>>({});
 
   const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
     try {
@@ -289,7 +289,7 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
 
   const sendAllHeartbeats = useCallback(() => {
     syncRef.current?.sendHeartbeat();
-    peerManager.send({
+    mqttManager.send({
       type: 'HEARTBEAT',
       senderId: clientIdRef.current,
       role,
@@ -319,7 +319,7 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
     const tracks = musicTracksRef.current;
     const ctrl = musicControlRef.current;
     syncRef.current?.broadcastMusicCatalog(tracks, ctrl);
-    peerManager.send({
+    mqttManager.send({
       type: 'MUSIC_CATALOG',
       senderId: clientIdRef.current,
       tracks,
@@ -472,77 +472,54 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
   ]);
 
   // =========================================================================
-  // 2. CROSS-DEVICE REMOTE SYNC (PeerJS singleton aislado de re-renders)
+  // 2. CROSS-DEVICE REMOTE SYNC (MQTT sobre WebSockets, singleton aislado)
   // =========================================================================
   // Handlers siempre frescos dentro de useRef: actualizar estado/puntaje/timer
-  // JAMÁS dispara desmontaje ni reconexión del Peer.
-  const peerHandlersRef = useRef<PeerSyncHandlers>({
+  // JAMÁS desconecta ni recrea el cliente MQTT.
+  const mqttHandlersRef = useRef<MqttSyncHandlers>({
     clientId: clientIdRef.current,
     getAudioUnlocked: () => isAudioUnlocked(),
     onRoomCodeChange: (code) => setRoomCode(code),
     onStatusChange: (status, err) => {
       setRemoteStatus(status);
       setRemoteError(err);
-      if (status === 'disconnected') {
-        setRemoteDisplayAudioReady(false);
-      }
     },
-    onConnectionsChange: (count) => {
-      setRemoteConnectedCount(count);
-      if (count === 0) {
-        setRemoteDisplayAudioReady(false);
-      }
+    onRemotePeersChange: (nextRemotePeers) => {
+      setRemotePeers(nextRemotePeers);
     },
-    onPeerOpened: () => {},
+    onBrokerConnected: () => {},
     onMessage: () => {},
   });
 
-  peerHandlersRef.current = {
+  mqttHandlersRef.current = {
     clientId: clientIdRef.current,
     getAudioUnlocked: () => isAudioUnlocked(),
     onRoomCodeChange: (code) => setRoomCode(code),
     onStatusChange: (status, err) => {
       setRemoteStatus(status);
       setRemoteError(err);
-      if (status === 'disconnected') {
-        setRemoteDisplayAudioReady(false);
-      }
     },
-    onConnectionsChange: (count) => {
-      setRemoteConnectedCount(count);
-      if (count === 0) {
-        setRemoteDisplayAudioReady(false);
-      }
+    onRemotePeersChange: (nextRemotePeers) => {
+      setRemotePeers(nextRemotePeers);
     },
-    onPeerOpened: (conn) => {
-      peerManager.sendToConnection(conn, {
-        type: 'HEARTBEAT',
-        senderId: clientIdRef.current,
-        role,
-        timestamp: Date.now(),
-        audioUnlocked: isAudioUnlocked(),
-      });
-
+    onBrokerConnected: () => {
       if (role === 'host') {
-        // Empujar inmediatamente el estado más reciente desde stateRef al conectar o reconectar
-        peerManager.sendToConnection(conn, {
+        // Publicar estado completo con retain: true al conectar o reconectar
+        mqttManager.publishImmediate({
           type: 'STATE_UPDATE',
           senderId: clientIdRef.current,
           role: 'host',
           state: stateRef.current,
         });
-        peerManager.sendToConnection(conn, {
+        mqttManager.publishImmediate({
           type: 'MUSIC_REQUEST',
           senderId: clientIdRef.current,
         });
       } else {
-        peerManager.sendToConnection(conn, {
-          type: 'REQUEST_STATE',
-          senderId: clientIdRef.current,
-          role: 'display',
-        });
+        // /display recibe automáticamente el último estado retenido al suscribirse;
+        // además comparte su catálogo local de música PC si ya hay pistas cargadas
         if (musicTracksRef.current.length > 0) {
-          peerManager.sendToConnection(conn, {
+          mqttManager.publishImmediate({
             type: 'MUSIC_CATALOG',
             senderId: clientIdRef.current,
             tracks: musicTracksRef.current,
@@ -551,14 +528,18 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
         }
       }
     },
-    onMessage: (msg: SyncMessage) => {
+    onMessage: (msg: SyncMessage, isRetained: boolean) => {
       switch (msg.type) {
         case 'STATE_UPDATE':
+          // En /host ignorar snapshots viejos retenidos si el host ya tiene estado más reciente
+          if (role === 'host' && isRetained && msg.state.updatedAt <= stateRef.current.updatedAt) {
+            return;
+          }
           handleIncomingState(msg.state, msg.role);
           break;
         case 'REQUEST_STATE':
           if (role === 'host') {
-            peerManager.send({
+            mqttManager.publishImmediate({
               type: 'STATE_UPDATE',
               senderId: clientIdRef.current,
               role: 'host',
@@ -590,7 +571,7 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
           break;
         case 'MUSIC_REQUEST':
           if (role === 'display' && musicTracksRef.current.length > 0) {
-            peerManager.send({
+            mqttManager.publishImmediate({
               type: 'MUSIC_CATALOG',
               senderId: clientIdRef.current,
               tracks: musicTracksRef.current,
@@ -598,44 +579,44 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
             });
           }
           break;
-        case 'PONG':
-          if (role === 'host' && msg.audioUnlocked !== undefined) {
-            setRemoteDisplayAudioReady(msg.audioUnlocked);
-          }
-          break;
         case 'HEARTBEAT':
-          if (msg.role === 'display' && msg.audioUnlocked !== undefined) {
-            setRemoteDisplayAudioReady(msg.audioUnlocked);
+          if (role === 'display' && msg.role === 'host' && musicTracksRef.current.length > 0) {
+            mqttManager.send({
+              type: 'MUSIC_CATALOG',
+              senderId: clientIdRef.current,
+              tracks: musicTracksRef.current,
+              control: musicControlRef.current,
+            });
           }
           break;
       }
     },
   };
 
-  // Mantener delegadores estables apuntando siempre a peerHandlersRef.current
+  // Delegadores estables hacia mqttHandlersRef.current
   useEffect(() => {
     const id = clientIdRef.current;
-    peerManager.attachHandlers(role, {
+    mqttManager.attachHandlers(role, {
       clientId: id,
-      getAudioUnlocked: () => peerHandlersRef.current.getAudioUnlocked(),
-      onRoomCodeChange: (code) => peerHandlersRef.current.onRoomCodeChange?.(code),
-      onStatusChange: (status, err) => peerHandlersRef.current.onStatusChange(status, err),
-      onConnectionsChange: (count) => peerHandlersRef.current.onConnectionsChange(count),
-      onPeerOpened: (conn) => peerHandlersRef.current.onPeerOpened(conn),
-      onMessage: (msg) => peerHandlersRef.current.onMessage(msg),
+      getAudioUnlocked: () => mqttHandlersRef.current.getAudioUnlocked(),
+      onRoomCodeChange: (code) => mqttHandlersRef.current.onRoomCodeChange?.(code),
+      onStatusChange: (status, err) => mqttHandlersRef.current.onStatusChange(status, err),
+      onRemotePeersChange: (nextPeers) => mqttHandlersRef.current.onRemotePeersChange(nextPeers),
+      onBrokerConnected: () => mqttHandlersRef.current.onBrokerConnected(),
+      onMessage: (msg, retained) => mqttHandlersRef.current.onMessage(msg, retained),
     });
 
     return () => {
-      peerManager.detachHandlers(id);
+      mqttManager.detachHandlers(id);
     };
   }, [role]);
 
   // Efecto de sala: SOLO depende de `role` y `activePeerRoom` (NUNCA de gameState ni callbacks)
   useEffect(() => {
     if (role === 'display') {
-      peerManager.ensureDisplayRoom(activePeerRoom || undefined);
+      mqttManager.ensureDisplayRoom(activePeerRoom || undefined);
     } else if (role === 'host' && activePeerRoom.length === 4) {
-      peerManager.connectHostToRoom(activePeerRoom);
+      mqttManager.connect('host', activePeerRoom);
     }
   }, [role, activePeerRoom]);
 
@@ -650,8 +631,7 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
       }
       setRoomCode(clean);
       setActivePeerRoom(clean);
-      // Si el usuario vuelve a presionar "Conectar" con el mismo código tras error, reintentar limpio
-      peerManager.connectHostToRoom(clean);
+      mqttManager.connect('host', clean);
     },
     [role]
   );
@@ -659,16 +639,17 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
   const disconnectRemoteRoom = useCallback(() => {
     if (role !== 'host') return;
     setActivePeerRoom('');
-    peerManager.disconnectHost();
+    mqttManager.disconnect();
   }, [role]);
 
   const regenerateRoomCode = useCallback(() => {
     if (role !== 'display') return;
-    peerManager.regenerateDisplayRoom();
+    mqttManager.regenerateDisplayRoom();
   }, [role]);
 
   const {
     localConnectedDisplays,
+    remoteConnectedCount,
     connectedDisplays,
     connectedHosts,
     displayAudioReady,
@@ -684,16 +665,28 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
       if (p.role === 'host') localHosts += 1;
     }
 
-    const remoteDisplays = role === 'host' ? remoteConnectedCount : 0;
-    const remoteHosts = role === 'display' ? remoteConnectedCount : 0;
+    let remoteDisplays = 0;
+    let remoteHosts = 0;
+    let remoteAudioReady = false;
+    for (const rp of Object.values(remotePeers)) {
+      if (rp.role === 'display') {
+        remoteDisplays += 1;
+        if (rp.audioUnlocked) remoteAudioReady = true;
+      }
+      if (rp.role === 'host') remoteHosts += 1;
+    }
+
+    const activeRemoteLinks =
+      role === 'host' ? remoteDisplays : remoteHosts;
 
     return {
       localConnectedDisplays: localDisplays,
+      remoteConnectedCount: activeRemoteLinks,
       connectedDisplays: localDisplays + remoteDisplays,
       connectedHosts: localHosts + remoteHosts,
-      displayAudioReady: localAudioReady || remoteDisplayAudioReady,
+      displayAudioReady: localAudioReady || remoteAudioReady,
     };
-  }, [peers, remoteConnectedCount, remoteDisplayAudioReady, role]);
+  }, [peers, remotePeers, role]);
 
   connectedDisplaysRef.current = connectedDisplays;
 
@@ -767,7 +760,7 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
 
       if (role === 'display') {
         syncRef.current?.broadcastMusicCatalog(nextTracks, nextCtrl);
-        peerManager.send({
+        mqttManager.send({
           type: 'MUSIC_CATALOG',
           senderId: clientIdRef.current,
           tracks: nextTracks,
@@ -810,7 +803,7 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
 
       // Enviar siempre comando liviano de control (clave para controlar pistas cargadas en /display desde el celular)
       syncRef.current?.broadcastMusicControl(nextCtrl);
-      peerManager.send({
+      mqttManager.send({
         type: 'MUSIC_CONTROL',
         senderId: clientIdRef.current,
         control: nextCtrl,
@@ -862,13 +855,13 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
       }
 
       syncRef.current?.broadcastMusicRemove(trackId);
-      peerManager.send({
+      mqttManager.send({
         type: 'MUSIC_REMOVE',
         senderId: clientIdRef.current,
         trackId,
       });
       syncRef.current?.broadcastMusicControl(nextCtrl);
-      peerManager.send({
+      mqttManager.send({
         type: 'MUSIC_CONTROL',
         senderId: clientIdRef.current,
         control: nextCtrl,
@@ -895,7 +888,7 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
       applyControlToAudioElement(nextCtrl, shouldPlayLocal);
 
       syncRef.current?.broadcastMusicControl(nextCtrl);
-      peerManager.send({
+      mqttManager.send({
         type: 'MUSIC_CONTROL',
         senderId: clientIdRef.current,
         control: nextCtrl,
@@ -935,7 +928,7 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
         };
         stateRef.current = next;
         syncRef.current?.broadcastState(next);
-        peerManager.send({
+        mqttManager.send({
           type: 'STATE_UPDATE',
           senderId: clientIdRef.current,
           role,
@@ -953,7 +946,7 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
       playBroadcastCue(cue);
     }
     syncRef.current?.broadcastSoundCue(cue);
-    peerManager.send({
+    mqttManager.send({
       type: 'SOUND_CUE',
       senderId: clientIdRef.current,
       cue,
@@ -1097,7 +1090,7 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
       };
       pushFlash(flash);
       syncRef.current?.broadcastScoreFlash(flash);
-      peerManager.send({
+      mqttManager.send({
         type: 'SCORE_FLASH',
         senderId: clientIdRef.current,
         flash,

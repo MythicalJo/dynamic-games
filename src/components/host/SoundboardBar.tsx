@@ -34,7 +34,7 @@ export function SoundboardBar({ shortcutNotice }: SoundboardBarProps) {
     triggerCue,
     connectedDisplays,
     localConnectedDisplays,
-    remoteConnectedCount,
+    remoteStatus,
     displayAudioReady,
     musicTracks,
     musicControl,
@@ -56,7 +56,7 @@ export function SoundboardBar({ shortcutNotice }: SoundboardBarProps) {
   const [tickFlip, setTickFlip] = useState(false);
   const musicInputRef = useRef<HTMLInputElement | null>(null);
 
-  const isRemoteOnly = remoteConnectedCount > 0 && localConnectedDisplays === 0;
+  const isRemoteOnly = remoteStatus === 'connected' && localConnectedDisplays === 0;
 
   const handleMusicFilesChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;

@@ -202,32 +202,44 @@ function HostWorkspace() {
             </button>
           </nav>
 
-          {/* Right: 4-Palette Real-Time Theme Switcher (Blanco / Sepia / Negro / Pizarra) */}
-          <div
-            className="order-2 flex max-w-full flex-wrap items-center gap-0.5 rounded-full border border-line bg-surface p-1 sm:order-3"
-            title="Tema visual (sincronizado en tiempo real con la pantalla del público)"
-          >
-            {THEMES.map((item) => {
-              const active = theme === item.id;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => setTheme(item.id)}
-                  className={`flex items-center gap-1.5 rounded-full px-2 py-1.5 text-xs font-semibold transition sm:px-2.5 sm:py-1 ${
-                    active
-                      ? 'bg-canvas text-ink shadow-xs ring-1 ring-line-strong'
-                      : 'text-ink-muted hover:text-ink'
-                  }`}
-                >
-                  <span
-                    className="h-2.5 w-2.5 rounded-full border border-black/20"
-                    style={{ backgroundColor: item.bgSwatch }}
-                  />
-                  <span className="hidden md:inline">{item.label}</span>
-                </button>
-              );
-            })}
+          {/* Right: Theme Switcher + Global "Reiniciar Todo" */}
+          <div className="order-2 flex max-w-full flex-wrap items-center gap-1.5 sm:order-3">
+            <div
+              className="flex items-center gap-0.5 rounded-full border border-line bg-surface p-1"
+              title="Tema visual (sincronizado en tiempo real con la pantalla del público)"
+            >
+              {THEMES.map((item) => {
+                const active = theme === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setTheme(item.id)}
+                    className={`flex items-center gap-1.5 rounded-full px-2 py-1.5 text-xs font-semibold transition sm:px-2.5 sm:py-1 ${
+                      active
+                        ? 'bg-canvas text-ink shadow-xs ring-1 ring-line-strong'
+                        : 'text-ink-muted hover:text-ink'
+                    }`}
+                  >
+                    <span
+                      className="h-2.5 w-2.5 rounded-full border border-black/20"
+                      style={{ backgroundColor: item.bgSwatch }}
+                    />
+                    <span className="hidden md:inline">{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setResetModalOpen(true)}
+              title="Reiniciar toda la partida (puntajes a 0 y todos los juegos)"
+              className="inline-flex min-h-[32px] items-center gap-1.5 rounded-full border border-err/35 bg-err-soft px-2.5 py-1 text-[11px] font-bold text-err transition hover:bg-err hover:text-err-fg active:scale-95 sm:px-3 sm:text-xs"
+            >
+              <RotateCcw className="h-3.5 w-3.5 shrink-0" />
+              <span className="hidden sm:inline">Reiniciar Todo</span>
+            </button>
           </div>
         </div>
       </header>
@@ -326,7 +338,9 @@ function HostWorkspace() {
             {/* ESSENTIAL LIVE 2-COLUMN DESK: Special Mode Controls + Current Round + Quick Score Actions */}
             <div className="grid w-full max-w-full grid-cols-1 items-start gap-5 lg:grid-cols-12">
               <div className="w-full max-w-full min-w-0 space-y-5 lg:col-span-8">
-                {state.displayMode === 'podium' && <PodiumHostControls />}
+                {state.displayMode === 'podium' && (
+                  <PodiumHostControls onRequestResetAll={() => setResetModalOpen(true)} />
+                )}
                 {state.displayMode === 'tiebreaker' && <TiebreakerHostControls />}
                 {ActiveHostComponent && <ActiveHostComponent mode="live" />}
               </div>
@@ -396,7 +410,7 @@ function HostWorkspace() {
                   className="inline-flex min-h-[40px] items-center gap-1.5 rounded-xl border border-err/40 bg-err-soft px-3.5 py-2 text-xs font-bold text-err transition hover:bg-err hover:text-err-fg sm:min-h-0"
                 >
                   <RotateCcw className="h-3.5 w-3.5" />
-                  <span>Reiniciar Evento</span>
+                  <span>Reiniciar Todo</span>
                 </button>
 
                 <button

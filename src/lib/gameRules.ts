@@ -38,12 +38,12 @@ export const GAME_RULES_MAP: Record<string, GameRulesEntry> = {
   [MENTAL_SYNC_MODULE_ID]: {
     moduleId: MENTAL_SYNC_MODULE_ID,
     title: 'Sincronía Mental',
-    subtitle: 'TELEPATÍA DE PAREJAS',
+    subtitle: 'PIZARRAS FÍSICAS',
     icon: Brain,
     bullets: [
-      'Sale una pregunta en pantalla sobre quién es más probable.',
-      'A la cuenta de tres, ambos amigos se apuntan al mismo tiempo.',
-      'Si coinciden, ganan puntos; si no, cero.',
+      'Sale una pregunta en pantalla para todos los equipos.',
+      'Cada jugador escribe su respuesta en su pizarra física antes de que acabe el tiempo (sin ver la de su amigo).',
+      'A la señal, muestran sus pizarras al mismo tiempo: si escribieron lo mismo, ganan puntos; si no, cero.',
     ],
   },
   [POLYGRAPH_MODULE_ID]: {

@@ -1364,11 +1364,12 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
     } catch {
       // ignorar
     }
-    commitState((prev) => {
+    setState((prev) => {
       const zeroedTeams = prev.teams.map((tItem) => ({ ...tItem, score: 0 }));
       const firstId = zeroedTeams[0]?.id ?? null;
-      return {
+      const next: ShowState = {
         ...prev,
+        updatedAt: Math.max(Date.now(), prev.updatedAt + 1),
         teams: zeroedTeams,
         displayMode: 'lobby',
         rulesOverlayModuleId: null,
@@ -1386,8 +1387,19 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
           [POLYGRAPH_MODULE_ID]: createInitialPolygraphState(firstId),
         },
       };
+      stateRef.current = next;
+      // Sincronizar reinicio inmediatamente por BroadcastChannel y MQTT (con retain: true)
+      syncRef.current?.broadcastState(next);
+      mqttManager.publishImmediate({
+        type: 'STATE_UPDATE',
+        senderId: clientIdRef.current,
+        role,
+        state: next,
+      });
+      return next;
     });
-  }, [commitState]);
+    triggerCue('switch');
+  }, [role, triggerCue]);
 
   const resetAllData = useCallback(() => {
     try {

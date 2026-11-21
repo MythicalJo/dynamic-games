@@ -875,7 +875,7 @@ export const TRANSLATIONS: Record<Language, Translations> = {
       matchBtn: (pts) => `¡COINCIDEN! (+${pts} PTS)`,
       mismatchBtn: 'NO COINCIDEN (0 PTS)',
       setupTitle: 'Preguntas de Sincronía Mental',
-      setupDesc: 'Prepara preguntas de «¿Quién es más probable...?» para señalar o escribir en pizarra.',
+      setupDesc: 'Prepara preguntas de «¿Quién es más probable...?» para responder en pizarras físicas.',
       resetSamples: 'Restaurar ejemplos',
       promptType: 'Tipo de pregunta',
       promptText: 'Pregunta',

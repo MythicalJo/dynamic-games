@@ -283,7 +283,7 @@ export function EventDataPanel() {
             className="inline-flex items-center gap-2 rounded-xl border border-warn/45 bg-warn-soft px-4 py-2 text-xs font-bold text-warn transition hover:border-warn"
           >
             <RotateCcw className="h-3.5 w-3.5" />
-            <span>Reiniciar Evento (puntajes a 0)</span>
+            <span>Reiniciar Todo</span>
           </button>
 
           {confirmClear ? (

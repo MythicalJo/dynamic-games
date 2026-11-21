@@ -98,7 +98,7 @@ export function TiebreakerHostControls() {
         ...prev,
         source: 'mental-sync',
         promptText: chosen.text,
-        promptHint: 'A la cuenta de 3, ambos se apuntan al mismo tiempo.',
+        promptHint: 'Cada jugador escribe en su pizarra física y las muestran al mismo tiempo.',
         timerSeconds: 15,
         timer: createTimerState(15),
         winnerTeamId: null,

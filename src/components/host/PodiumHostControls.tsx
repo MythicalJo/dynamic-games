@@ -3,7 +3,11 @@ import { Crown, RotateCcw, Sparkles, Trophy } from 'lucide-react';
 import { useShow } from '../../context/ShowContext';
 import { TEAM_ACCENTS } from '../../types/show';
 
-export function PodiumHostControls() {
+interface PodiumHostControlsProps {
+  onRequestResetAll?: () => void;
+}
+
+export function PodiumHostControls({ onRequestResetAll }: PodiumHostControlsProps) {
   const { state, setPodiumRevealStep, triggerCue } = useShow();
   const step = state.podiumRevealStep;
 
@@ -52,6 +56,16 @@ export function PodiumHostControls() {
             <RotateCcw className="h-3.5 w-3.5" />
             <span>Ocultar podio</span>
           </button>
+          {onRequestResetAll && (
+            <button
+              type="button"
+              onClick={onRequestResetAll}
+              className="inline-flex min-h-[36px] items-center gap-1.5 rounded-xl border border-err/40 bg-err-soft px-3 py-1.5 text-xs font-bold text-err transition hover:bg-err hover:text-err-fg active:scale-95"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              <span>Reiniciar Todo</span>
+            </button>
+          )}
         </div>
       </div>
 

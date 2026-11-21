@@ -195,7 +195,7 @@ export const AUCTION_CATEGORY_BANK: AuctionCategory[] = [
 ];
 
 /**
- * 80 consignas de tipo "¿Quién es más probable...?" (Apuntar) para Sincronía Mental
+ * 80 consignas de tipo "¿Quién es más probable...?" (Pizarras físicas) para Sincronía Mental
  */
 export const MENTAL_SYNC_PROMPT_BANK: MentalSyncPrompt[] = [
   { id: 'ms_01', type: 'who', text: '¿Quién moriría primero en un apocalipsis zombie?' },

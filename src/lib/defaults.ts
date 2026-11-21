@@ -83,7 +83,7 @@ export const SAMPLE_QUESTIONS: PreparedQuestion[] = [
     id: 'q_calentamiento_3',
     category: 'SILLA CALIENTE',
     prompt: '¿Quién de esta pareja sobreviviría más tiempo en un apocalipsis zombi y por qué?',
-    answer: 'Ambos señalan a la cuenta de 3... 2... 1. Si coinciden, suman puntos.',
+    answer: 'Ambos escriben su respuesta en la pizarra física y la muestran a la vez. Si coinciden, suman puntos.',
     points: 20,
     hostNote: 'Dales 15 segundos para defender su postura.',
   },

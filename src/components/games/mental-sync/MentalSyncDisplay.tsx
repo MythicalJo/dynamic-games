@@ -8,7 +8,7 @@ import { AnimatedScore } from '../../shared/AnimatedScore';
 import { useMentalSync } from './useMentalSync';
 
 export function MentalSyncDisplay() {
-  const { t } = useShow();
+  const { state, t } = useShow();
   const { syncState, activeTeam, activePrompt, remainingMs } = useMentalSync();
 
   const teamAccent = activeTeam ? TEAM_ACCENTS[activeTeam.accent] : null;
@@ -20,6 +20,11 @@ export function MentalSyncDisplay() {
   const displayPromptText = activePrompt?.text
     ? activePrompt.text.replace(/\[Nombre\]/gi, activeTeam?.playerA || 'tu pareja')
     : t.mentalSync.display.readyPrompt;
+
+  const hasAnyTeamChecked = state.teams.some((teamItem) => {
+    const r = syncState.teamResults[teamItem.id];
+    return r === 'match' || r === 'mismatch';
+  });
 
   return (
     <div className="relative flex h-full w-full flex-col justify-between px-12 py-9 md:px-20 md:py-11">
@@ -134,80 +139,151 @@ export function MentalSyncDisplay() {
         </AnimatePresence>
       </div>
 
-      <div className="text-center font-mono text-xs font-bold tracking-[0.26em] text-ink-subtle uppercase">
-        {t.mentalSync.display.footerCue}
-      </div>
+      {/* Bottom Live Per-Question Team Results Strip or Whiteboard Cue */}
+      {hasAnyTeamChecked ? (
+        <div className="flex flex-wrap items-center justify-center gap-3 border-t border-line pt-4">
+          {state.teams.map((teamItem) => {
+            const res = syncState.teamResults[teamItem.id] ?? 'pending';
+            const acc = TEAM_ACCENTS[teamItem.accent];
+            return (
+              <div
+                key={teamItem.id}
+                className={`flex items-center gap-2.5 rounded-2xl border px-4 py-2 transition-colors ${
+                  res === 'match'
+                    ? 'border-ok bg-ok-soft text-ok'
+                    : res === 'mismatch'
+                      ? 'border-err/50 bg-err-soft text-err'
+                      : 'border-line bg-surface text-ink-muted'
+                }`}
+              >
+                <span
+                  className="h-2.5 w-2.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: acc.hex }}
+                />
+                <span className="text-sm font-extrabold uppercase text-ink">
+                  {teamItem.name}
+                </span>
+                <span className="text-xs font-medium text-ink-muted">
+                  ({teamItem.playerA} y {teamItem.playerB})
+                </span>
+                {res === 'match' && (
+                  <span className="rounded-full bg-ok px-2 py-0.5 font-mono text-xs font-extrabold text-ok-fg">
+                    ✓ +{MENTAL_SYNC_MATCH_POINTS}
+                  </span>
+                )}
+                {res === 'mismatch' && (
+                  <span className="rounded-full bg-err px-2 py-0.5 font-mono text-xs font-extrabold text-err-fg">
+                    ✕ 0
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="text-center font-mono text-xs font-bold tracking-[0.26em] text-ink-subtle uppercase">
+          {t.mentalSync.display.footerCue}
+        </div>
+      )}
 
-      {/* CLEAN HIGH-IMPACT OVERLAY: "¡SINCRONIZADOS!" OR "NO COINCIDEN" */}
+      {/* HIGH-IMPACT RESULT BANNER WITH PROMINENT TEAM NAME + BOTH MEMBERS */}
       <AnimatePresence>
         {syncState.result === 'match' && (
           <motion.div
-            key="overlay-synced"
+            key={`overlay-synced-${activeTeam?.id ?? 'team'}`}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-40 flex items-center justify-center bg-canvas/90 backdrop-blur-sm"
+            className="fixed inset-0 z-40 flex items-center justify-center bg-canvas/90 p-8 backdrop-blur-sm"
           >
             <motion.div
-              initial={{ scale: 0.82, opacity: 0 }}
+              initial={{ scale: 0.84, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.92, opacity: 0 }}
               transition={{ type: 'spring', stiffness: 340, damping: 22 }}
-              className="flex flex-col items-center rounded-3xl border-4 border-ok bg-surface px-14 py-12 text-center shadow-2xl"
+              className="flex w-full max-w-4xl flex-col items-center rounded-3xl border-4 border-ok bg-surface px-10 py-12 text-center shadow-2xl md:px-16"
             >
+              {/* Prominent Team Name + Both Members */}
+              {activeTeam && teamAccent && (
+                <div className="mb-6 inline-flex flex-wrap items-center justify-center gap-3 rounded-2xl border border-line-strong bg-canvas px-6 py-3">
+                  <span
+                    className="h-4 w-4 shrink-0 rounded-full"
+                    style={{ backgroundColor: teamAccent.hex }}
+                  />
+                  <span className="text-2xl font-extrabold tracking-tight text-ink uppercase md:text-4xl">
+                    {activeTeam.name}
+                  </span>
+                  <span className="text-xl font-bold text-ink-subtle md:text-3xl">—</span>
+                  <span className="text-xl font-bold text-ink-muted md:text-3xl">
+                    {activeTeam.playerA} y {activeTeam.playerB}
+                  </span>
+                </div>
+              )}
+
               <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-ok text-ok-fg">
                 <Check className="h-9 w-9 stroke-[3]" />
               </div>
 
               <div
                 className="font-extrabold tracking-tight text-ok uppercase"
-                style={{ fontSize: 'clamp(3.2rem, 8.5vw, 7.2rem)', lineHeight: 0.95 }}
+                style={{ fontSize: 'clamp(3rem, 7.6vw, 6.4rem)', lineHeight: 0.96 }}
               >
-                {t.mentalSync.display.syncedHeadline}
+                ¡COINCIDEN! ✓
               </div>
 
-              <div className="mt-5 rounded-full bg-accent px-7 py-2 font-mono text-2xl font-extrabold text-accent-fg">
+              <div className="mt-6 rounded-full bg-accent px-8 py-2.5 font-mono text-2xl font-extrabold text-accent-fg md:text-3xl">
                 {t.mentalSync.display.pointsAwarded(MENTAL_SYNC_MATCH_POINTS)}
               </div>
-
-              {activeTeam && (
-                <div className="mt-4 font-mono text-base font-bold tracking-[0.18em] text-ink-muted uppercase">
-                  {t.mentalSync.display.telepathyConfirmed(activeTeam.name)}
-                </div>
-              )}
             </motion.div>
           </motion.div>
         )}
 
         {syncState.result === 'mismatch' && (
           <motion.div
-            key="overlay-mismatch"
+            key={`overlay-mismatch-${activeTeam?.id ?? 'team'}`}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-40 flex items-center justify-center bg-canvas/90 backdrop-blur-sm"
+            className="fixed inset-0 z-40 flex items-center justify-center bg-canvas/90 p-8 backdrop-blur-sm"
           >
             <motion.div
               initial={{ scale: 0.85, opacity: 0 }}
               animate={{ scale: 1, opacity: 1, x: [0, -10, 10, -6, 6, 0] }}
               exit={{ scale: 0.92, opacity: 0 }}
               transition={{ duration: 0.4 }}
-              className="flex flex-col items-center rounded-3xl border-4 border-err bg-surface px-14 py-12 text-center shadow-2xl"
+              className="flex w-full max-w-4xl flex-col items-center rounded-3xl border-4 border-err bg-surface px-10 py-12 text-center shadow-2xl md:px-16"
             >
+              {/* Prominent Team Name + Both Members */}
+              {activeTeam && teamAccent && (
+                <div className="mb-6 inline-flex flex-wrap items-center justify-center gap-3 rounded-2xl border border-line-strong bg-canvas px-6 py-3">
+                  <span
+                    className="h-4 w-4 shrink-0 rounded-full"
+                    style={{ backgroundColor: teamAccent.hex }}
+                  />
+                  <span className="text-2xl font-extrabold tracking-tight text-ink uppercase md:text-4xl">
+                    {activeTeam.name}
+                  </span>
+                  <span className="text-xl font-bold text-ink-subtle md:text-3xl">—</span>
+                  <span className="text-xl font-bold text-ink-muted md:text-3xl">
+                    {activeTeam.playerA} y {activeTeam.playerB}
+                  </span>
+                </div>
+              )}
+
               <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-err text-err-fg">
                 <X className="h-9 w-9 stroke-[3]" />
               </div>
 
               <div
                 className="font-extrabold tracking-tight text-err uppercase"
-                style={{ fontSize: 'clamp(3.2rem, 8.5vw, 7.2rem)', lineHeight: 0.95 }}
+                style={{ fontSize: 'clamp(3rem, 7.6vw, 6.4rem)', lineHeight: 0.96 }}
               >
-                {t.mentalSync.display.noMatchHeadline}
+                NO COINCIDEN ✕
               </div>
 
-              <div className="mt-5 rounded-full border border-err/40 bg-err-soft px-7 py-2 font-mono text-xl font-bold text-err">
+              <div className="mt-6 rounded-full border border-err/40 bg-err-soft px-8 py-2 font-mono text-2xl font-bold text-err">
                 {t.mentalSync.display.signalLost}
               </div>
             </motion.div>

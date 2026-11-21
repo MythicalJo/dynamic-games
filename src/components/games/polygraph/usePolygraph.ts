@@ -172,6 +172,31 @@ export function usePolygraph() {
     [commit, triggerCue]
   );
 
+  /** Cambio de equipo en 1 toque: carga la primera afirmación del equipo o asigna la activa a ese equipo */
+  const selectTeamForLive = useCallback(
+    (teamId: string) => {
+      const teamStatement = polyState.statements.find((s) => s.teamId === teamId);
+      if (teamStatement) {
+        if (teamStatement.id === polyState.activeStatementId) return;
+        pushStatementToScreen(teamStatement.id);
+        return;
+      }
+
+      if (!polyState.activeStatementId) return;
+      commit((prev) => ({
+        ...prev,
+        statements: prev.statements.map((s) =>
+          s.id === prev.activeStatementId ? { ...s, teamId } : s
+        ),
+        lockedGuess: null,
+        verdictRevealed: false,
+        awardedPoints: 0,
+      }));
+      triggerCue('switch');
+    },
+    [commit, polyState.activeStatementId, polyState.statements, pushStatementToScreen, triggerCue]
+  );
+
   const setRewardPoints = useCallback(
     (points: number) => {
       commit((prev) => ({
@@ -307,6 +332,7 @@ export function usePolygraph() {
     deleteStatement,
     loadSampleStatements,
     pushStatementToScreen,
+    selectTeamForLive,
     setRewardPoints,
     startTimer,
     pauseTimer,

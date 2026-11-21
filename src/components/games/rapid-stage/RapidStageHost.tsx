@@ -7,6 +7,7 @@ import {
   EyeOff,
   Pencil,
   Plus,
+  Sparkles,
   Trash2,
   X,
 } from 'lucide-react';
@@ -109,8 +110,9 @@ export function RapidStageHost({ mode }: GameHostProps) {
     return (
       <section className="rounded-2xl border border-line bg-surface p-6">
         <div className="mb-5">
-          <h2 className="text-lg font-bold tracking-tight text-ink">
-            {t.rapidStage.bankTitle(questions.length)}
+          <h2 className="flex items-center gap-2 text-lg font-bold tracking-tight text-ink">
+            <Sparkles className="h-5 w-5 shrink-0 text-accent" />
+            <span>{t.rapidStage.bankTitle(questions.length)}</span>
           </h2>
           <p className="mt-0.5 text-xs text-ink-muted">{t.rapidStage.bankDesc}</p>
         </div>
@@ -316,8 +318,9 @@ export function RapidStageHost({ mode }: GameHostProps) {
   return (
     <section className="space-y-4 rounded-2xl border border-line bg-surface p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-extrabold tracking-tight text-ink">
-          {t.rapidStage.controllerTitle}
+        <h2 className="flex items-center gap-2 text-lg font-extrabold tracking-tight text-ink">
+          <Sparkles className="h-5 w-5 shrink-0 text-accent" />
+          <span>{t.rapidStage.controllerTitle}</span>
         </h2>
 
         <div className="flex flex-wrap items-center gap-2">

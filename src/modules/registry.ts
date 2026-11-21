@@ -1,4 +1,5 @@
 import type React from 'react';
+import { Activity, Brain, Gavel, Sparkles, Zap, type LucideIcon } from 'lucide-react';
 import { RapidStageDisplay } from '../components/display/RapidStageDisplay';
 import { RapidStageHost } from '../components/games/rapid-stage/RapidStageHost';
 import { FastMoneyDisplay } from '../components/games/fast-money/FastMoneyDisplay';
@@ -24,6 +25,7 @@ export interface GameModuleMeta {
   shortName: string;
   subtitle: string;
   description: string;
+  icon: LucideIcon;
   status: 'active' | 'slot';
   HostComponent?: React.ComponentType<GameHostProps>;
   DisplayComponent?: React.ComponentType;
@@ -36,6 +38,7 @@ export const GAME_MODULES: GameModuleMeta[] = [
     shortName: 'Dinero Rápido',
     subtitle: '30s · 5 Preguntas',
     description: 'Ronda relámpago de 30s con respuestas ocultas, botón PASO y revelación.',
+    icon: Zap,
     status: 'active',
     HostComponent: FastMoneyHost,
     DisplayComponent: FastMoneyDisplay,
@@ -46,6 +49,7 @@ export const GAME_MODULES: GameModuleMeta[] = [
     shortName: 'Subasta de Confianza',
     subtitle: 'Apuesta y 30s',
     description: 'Subasta cuántas respuestas logras en 30 segundos y completa la barra.',
+    icon: Gavel,
     status: 'active',
     HostComponent: ConfidenceAuctionHost,
     DisplayComponent: ConfidenceAuctionDisplay,
@@ -55,7 +59,8 @@ export const GAME_MODULES: GameModuleMeta[] = [
     name: 'Sincronía Mental',
     shortName: 'Sincronía Mental',
     subtitle: 'Telepatía',
-    description: 'Frases en pantalla, reloj opcional de 15s y avisos de sincronía.',
+    description: 'Preguntas en pantalla, reloj editable y puntuación rápida por equipo.',
+    icon: Brain,
     status: 'active',
     HostComponent: MentalSyncHost,
     DisplayComponent: MentalSyncDisplay,
@@ -66,6 +71,7 @@ export const GAME_MODULES: GameModuleMeta[] = [
     shortName: 'El Polígrafo',
     subtitle: 'Verdad o Mentira',
     description: 'Interrogatorio de 60 segundos y sello animado de Verdad o Mentira.',
+    icon: Activity,
     status: 'active',
     HostComponent: PolygraphHost,
     DisplayComponent: PolygraphDisplay,
@@ -76,6 +82,7 @@ export const GAME_MODULES: GameModuleMeta[] = [
     shortName: 'Escenario Rápido',
     subtitle: 'Preguntas Libres',
     description: 'Tablero de preguntas abiertas y revelaciones para rondas extra.',
+    icon: Sparkles,
     status: 'active',
     HostComponent: RapidStageHost,
     DisplayComponent: RapidStageDisplay,

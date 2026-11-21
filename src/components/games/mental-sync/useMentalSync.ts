@@ -133,6 +133,7 @@ export function useMentalSync() {
       showWhiteboardsOnDisplay: false,
       result: 'pending',
       awardedPoints: 0,
+      teamResults: {},
       timer: createTimerState(prev.timerSeconds),
     }));
   }, [commit]);
@@ -154,6 +155,7 @@ export function useMentalSync() {
         showWhiteboardsOnDisplay: false,
         result: 'pending',
         awardedPoints: 0,
+        teamResults: {},
         timer: createTimerState(prev.timerSeconds),
       };
     });
@@ -172,6 +174,7 @@ export function useMentalSync() {
         showWhiteboardsOnDisplay: false,
         result: 'pending',
         awardedPoints: 0,
+        teamResults: {},
         timer: createTimerState(prev.timerSeconds),
       }));
       triggerCue('switch');
@@ -299,6 +302,55 @@ export function useMentalSync() {
     [activeTeam, adjustTeamScore, commit, syncState.awardedPoints, triggerCue]
   );
 
+  /**
+   * Califica rápidamente a un equipo individual en la pregunta actual.
+   * Si se vuelve a pulsar el mismo botón, deshace / alterna a pendiente y revierte los puntos.
+   */
+  const scoreTeamForPrompt = useCallback(
+    (teamId: string, target: 'match' | 'mismatch') => {
+      const prevTeamResult: MentalSyncResult = syncState.teamResults[teamId] ?? 'pending';
+      const nextTeamResult: MentalSyncResult = prevTeamResult === target ? 'pending' : target;
+
+      const prevPts = prevTeamResult === 'match' ? MENTAL_SYNC_MATCH_POINTS : 0;
+      const nextPts = nextTeamResult === 'match' ? MENTAL_SYNC_MATCH_POINTS : 0;
+      const delta = nextPts - prevPts;
+
+      commit((prev) => ({
+        ...prev,
+        activeTeamId: teamId,
+        result: nextTeamResult,
+        awardedPoints: nextPts,
+        teamResults: {
+          ...prev.teamResults,
+          [teamId]: nextTeamResult,
+        },
+        timer: prev.timer.isRunning
+          ? {
+              ...prev.timer,
+              remainingMs: computeRemainingMs(prev.timer),
+              isRunning: false,
+              startedAt: null,
+            }
+          : prev.timer,
+      }));
+
+      if (delta !== 0) {
+        adjustTeamScore(teamId, delta, { silent: true });
+      }
+
+      if (nextTeamResult === 'match') triggerCue('exactMatch');
+      else if (nextTeamResult === 'mismatch') triggerCue('miss');
+    },
+    [adjustTeamScore, commit, syncState.teamResults, triggerCue]
+  );
+
+  const clearResultOverlay = useCallback(() => {
+    commit((prev) => ({
+      ...prev,
+      result: 'pending',
+    }));
+  }, [commit]);
+
   return {
     syncState,
     activeTeam,
@@ -319,5 +371,7 @@ export function useMentalSync() {
     resetTimer,
     setWhiteboardAnswers,
     triggerResult,
+    scoreTeamForPrompt,
+    clearResultOverlay,
   };
 }

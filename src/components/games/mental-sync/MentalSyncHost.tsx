@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Brain,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -19,6 +20,7 @@ import { MENTAL_SYNC_PROMPT_BANK } from '../../../lib/spanishBank';
 import { formatBroadcastTimer } from '../../../lib/timer';
 import type { GameHostProps } from '../../../modules/registry';
 import { MENTAL_SYNC_MATCH_POINTS } from '../../../types/mentalSync';
+import { TEAM_ACCENTS } from '../../../types/show';
 import { useMentalSync } from './useMentalSync';
 
 const TIMER_PRESETS = [10, 15, 20, 30];
@@ -37,14 +39,14 @@ export function MentalSyncHost({ mode }: GameHostProps) {
     loadSamplePrompts,
     loadRandomTwelvePrompts,
     selectPrompt,
-    setActiveTeam,
     setTimerEnabled,
     setTimerDuration,
     startTimer,
     pauseTimer,
     resetTimer,
     setWhiteboardAnswers,
-    triggerResult,
+    scoreTeamForPrompt,
+    clearResultOverlay,
   } = useMentalSync();
 
   const [newText, setNewText] = useState('');
@@ -75,8 +77,11 @@ export function MentalSyncHost({ mode }: GameHostProps) {
       <section className="w-full max-w-full rounded-2xl border border-line bg-surface p-4 sm:p-6">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
-            <h2 className="text-lg font-bold tracking-tight text-ink">
-              {t.mentalSync.setupTitle} ({syncState.prompts.length})
+            <h2 className="flex items-center gap-2 text-lg font-bold tracking-tight text-ink">
+              <Brain className="h-5 w-5 shrink-0 text-accent" />
+              <span>
+                {t.mentalSync.setupTitle} ({syncState.prompts.length})
+              </span>
             </h2>
             <p className="mt-0.5 text-xs text-ink-muted">
               {t.mentalSync.setupDesc} ({MENTAL_SYNC_PROMPT_BANK.length} en banco ·{' '}
@@ -220,121 +225,111 @@ export function MentalSyncHost({ mode }: GameHostProps) {
   }
 
   /* ===================================================================== */
-  /* LIVE MODE: Pair + 1–12 Deck + Editable Timer + Match/Mismatch         */
+  /* LIVE MODE: Current Question + Multi-Team 1-Tap Scoring + Timer        */
   /* ===================================================================== */
   const resolvePromptText = (text: string) =>
     text.replace(/\[Nombre\]/gi, activeTeam?.playerA || 'tu pareja');
   const remainingSec = remainingMs / 1000;
   const isUrgent = remainingMs > 0 && remainingSec <= 5;
 
+  const checkedCount = state.teams.filter((teamItem) => {
+    const res = syncState.teamResults[teamItem.id];
+    return res === 'match' || res === 'mismatch';
+  }).length;
+
   return (
     <div className="w-full max-w-full space-y-5">
+      {/* Row 1: Current Question + Editable Timer */}
       <section className="grid w-full max-w-full grid-cols-1 gap-4 md:grid-cols-12">
-        {/* Pair & Active 1–12 Deck */}
-        <div className="w-full max-w-full min-w-0 space-y-4 rounded-2xl border border-line bg-surface p-4 sm:p-5 md:col-span-7">
+        {/* Current Prompt + Deck Navigation */}
+        <div className="w-full max-w-full min-w-0 space-y-3.5 rounded-2xl border border-line bg-surface p-4 sm:p-5 md:col-span-7">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-lg font-extrabold tracking-tight text-ink">{t.mentalSync.title}</h2>
-            <select
-              value={activeTeam?.id ?? ''}
-              onChange={(e) => setActiveTeam(e.target.value)}
-              className="w-full max-w-full rounded-xl border border-line bg-canvas px-3 py-2 text-xs font-bold text-ink outline-none focus:border-accent sm:w-auto sm:py-1.5"
-            >
-              {state.teams.length === 0 && (
-                <option value="">{t.common.noTeamsRegistered}</option>
-              )}
-              {state.teams.map((teamItem) => (
-                <option key={teamItem.id} value={teamItem.id}>
-                  {teamItem.name} ({teamItem.playerA} y {teamItem.playerB})
-                </option>
-              ))}
-            </select>
+            <h2 className="flex items-center gap-2 text-lg font-extrabold tracking-tight text-ink">
+              <Brain className="h-5 w-5 shrink-0 text-accent" />
+              <span>{t.mentalSync.title}</span>
+            </h2>
+
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                onClick={loadRandomTwelvePrompts}
+                className="inline-flex min-h-[34px] items-center gap-1.5 rounded-lg bg-accent px-2.5 py-1 text-xs font-bold text-accent-fg transition hover:opacity-90 active:scale-95"
+                title={`Quedan ${unusedBankCount} preguntas sin usar en el banco`}
+              >
+                <Shuffle className="h-3.5 w-3.5" />
+                <span>Cargar 12 al azar</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => stepPrompt(-1)}
+                className="flex h-[34px] w-[34px] items-center justify-center rounded-lg border border-line bg-canvas text-ink-muted hover:text-ink"
+                aria-label="Pregunta anterior"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => stepPrompt(1)}
+                className="flex h-[34px] w-[34px] items-center justify-center rounded-lg border border-line bg-canvas text-ink-muted hover:text-ink"
+                aria-label="Siguiente pregunta"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
           </div>
 
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="font-mono text-[11px] font-bold text-ink-muted uppercase">
-                {t.mentalSync.activePrompt(
-                  currentIdx >= 0 ? currentIdx + 1 : 0,
-                  syncState.prompts.length
-                )}
-              </span>
-
-              <div className="flex flex-wrap items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={loadRandomTwelvePrompts}
-                  className="inline-flex min-h-[34px] items-center gap-1.5 rounded-lg bg-accent px-2.5 py-1 text-xs font-bold text-accent-fg transition hover:opacity-90 active:scale-95"
-                  title={`Quedan ${unusedBankCount} preguntas sin usar en el banco`}
-                >
-                  <Shuffle className="h-3.5 w-3.5" />
-                  <span>Cargar 12 al azar</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => stepPrompt(-1)}
-                  className="flex h-[34px] w-[34px] items-center justify-center rounded-lg border border-line bg-canvas text-ink-muted hover:text-ink"
-                  aria-label="Pregunta anterior"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => stepPrompt(1)}
-                  className="flex h-[34px] w-[34px] items-center justify-center rounded-lg border border-line bg-canvas text-ink-muted hover:text-ink"
-                  aria-label="Siguiente pregunta"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-
-            {/* Active Prompt Card */}
-            {activePrompt && (
-              <div className="w-full max-w-full rounded-xl border border-line bg-canvas p-4">
+          {/* Active Prompt Card */}
+          {activePrompt && (
+            <div className="w-full max-w-full rounded-xl border border-line bg-canvas p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="font-mono text-[10px] font-bold tracking-wider text-accent uppercase">
-                  #{currentIdx + 1} · {t.mentalSync.whoTag}
+                  Pregunta {currentIdx >= 0 ? currentIdx + 1 : 0} de {syncState.prompts.length} ·{' '}
+                  {t.mentalSync.whoTag}
                 </span>
-                <p className="mt-1 break-words text-base font-bold text-ink">
-                  {resolvePromptText(activePrompt.text)}
-                </p>
+                <span className="rounded-full bg-accent-soft px-2 py-0.5 font-mono text-[10px] font-bold text-accent">
+                  +{MENTAL_SYNC_MATCH_POINTS} pts
+                </span>
               </div>
-            )}
+              <p className="mt-1.5 break-words text-base font-bold text-ink">
+                {resolvePromptText(activePrompt.text)}
+              </p>
+            </div>
+          )}
 
-            {/* Selectable 1–12 Deck List */}
-            <div className="space-y-1.5">
-              <div className="font-mono text-[10px] font-bold tracking-wider text-ink-subtle uppercase">
-                Mazo activo ({syncState.prompts.length} preguntas — toca para proyectar)
-              </div>
-              <div className="max-h-48 divide-y divide-line overflow-y-auto rounded-xl border border-line bg-canvas">
-                {syncState.prompts.map((p, idx) => {
-                  const isSelected = p.id === syncState.selectedPromptId;
-                  return (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => selectPrompt(p.id)}
-                      className={`flex w-full items-start gap-2.5 px-3 py-2.5 text-left text-xs transition ${
+          {/* Compact 1–12 Numbered Quick Jump Strip */}
+          <div className="space-y-1.5">
+            <div className="font-mono text-[10px] font-bold tracking-wider text-ink-subtle uppercase">
+              Mazo activo ({syncState.prompts.length} preguntas)
+            </div>
+            <div className="max-h-40 divide-y divide-line overflow-y-auto rounded-xl border border-line bg-canvas">
+              {syncState.prompts.map((p, idx) => {
+                const isSelected = p.id === syncState.selectedPromptId;
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => selectPrompt(p.id)}
+                    className={`flex w-full items-start gap-2.5 px-3 py-2 text-left text-xs transition ${
+                      isSelected
+                        ? 'bg-accent-soft font-bold text-ink'
+                        : 'text-ink-muted hover:bg-surface hover:text-ink'
+                    }`}
+                  >
+                    <span
+                      className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded font-mono text-[10px] font-bold ${
                         isSelected
-                          ? 'bg-accent-soft font-bold text-ink'
-                          : 'text-ink-muted hover:bg-surface hover:text-ink'
+                          ? 'bg-accent text-accent-fg'
+                          : 'border border-line bg-surface text-ink-subtle'
                       }`}
                     >
-                      <span
-                        className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded font-mono text-[10px] font-bold ${
-                          isSelected
-                            ? 'bg-accent text-accent-fg'
-                            : 'border border-line bg-surface text-ink-subtle'
-                        }`}
-                      >
-                        {idx + 1}
-                      </span>
-                      <span className="min-w-0 flex-1 break-words leading-snug">
-                        {resolvePromptText(p.text)}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+                      {idx + 1}
+                    </span>
+                    <span className="min-w-0 flex-1 break-words leading-snug">
+                      {resolvePromptText(p.text)}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -440,7 +435,130 @@ export function MentalSyncHost({ mode }: GameHostProps) {
         </div>
       </section>
 
-      {/* Optional Whiteboard Inputs */}
+      {/* Row 2: ALL TEAMS MULTI-TEAM RAPID SCORING LIST (directly under active question) */}
+      <section className="w-full max-w-full rounded-2xl border border-line bg-surface p-4 sm:p-5">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 className="text-sm font-extrabold text-ink">
+              Calificar todos los equipos · Pregunta #{currentIdx >= 0 ? currentIdx + 1 : 0}
+            </h3>
+            <p className="text-[11px] text-ink-muted">
+              {checkedCount}/{state.teams.length} equipos calificados · toca de nuevo para deshacer
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5">
+            {syncState.result !== 'pending' && (
+              <button
+                type="button"
+                onClick={clearResultOverlay}
+                className="min-h-[34px] rounded-lg border border-line bg-canvas px-3 py-1 text-xs font-semibold text-ink-muted hover:text-ink"
+              >
+                Quitar aviso
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => stepPrompt(1)}
+              className="inline-flex min-h-[34px] items-center gap-1 rounded-lg bg-ink px-3 py-1 text-xs font-bold text-canvas transition hover:opacity-90 active:scale-95"
+            >
+              <span>Siguiente pregunta</span>
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+
+        {state.teams.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-line-strong py-6 text-center text-xs text-ink-muted">
+            {t.common.noTeamsYet}
+          </div>
+        ) : (
+          <div className="grid w-full max-w-full grid-cols-1 gap-2.5 sm:grid-cols-2">
+            {state.teams.map((teamItem) => {
+              const teamRes = syncState.teamResults[teamItem.id] ?? 'pending';
+              const accent = TEAM_ACCENTS[teamItem.accent];
+              const isMatch = teamRes === 'match';
+              const isMismatch = teamRes === 'mismatch';
+
+              return (
+                <div
+                  key={teamItem.id}
+                  className={`flex flex-col justify-between gap-2.5 rounded-xl border p-3 transition-colors ${
+                    isMatch
+                      ? 'border-ok bg-ok-soft'
+                      : isMismatch
+                        ? 'border-err/60 bg-err-soft'
+                        : 'border-line bg-canvas'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="h-2.5 w-2.5 shrink-0 rounded-full"
+                          style={{ backgroundColor: accent.hex }}
+                        />
+                        <span className="truncate text-sm font-extrabold text-ink uppercase">
+                          {teamItem.name}
+                        </span>
+                      </div>
+                      <div className="mt-0.5 truncate pl-4 text-[11px] font-medium text-ink-muted">
+                        {teamItem.playerA} y {teamItem.playerB}
+                      </div>
+                    </div>
+
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      {isMatch && (
+                        <span className="rounded-full bg-ok px-2 py-0.5 font-mono text-[10px] font-extrabold text-ok-fg">
+                          ✓ +{MENTAL_SYNC_MATCH_POINTS}
+                        </span>
+                      )}
+                      {isMismatch && (
+                        <span className="rounded-full bg-err px-2 py-0.5 font-mono text-[10px] font-extrabold text-err-fg">
+                          ✕ 0
+                        </span>
+                      )}
+                      <span className="font-mono text-xs font-bold text-ink-subtle tabular-nums">
+                        {teamItem.score}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => scoreTeamForPrompt(teamItem.id, 'match')}
+                      className={`inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border-2 px-2.5 py-2 text-xs font-extrabold transition active:scale-95 ${
+                        isMatch
+                          ? 'border-ok bg-ok text-ok-fg'
+                          : 'border-ok/40 bg-surface text-ok hover:bg-ok hover:text-ok-fg'
+                      }`}
+                    >
+                      <Check className="h-4 w-4 shrink-0 stroke-[2.5]" />
+                      <span>Coinciden ✓</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => scoreTeamForPrompt(teamItem.id, 'mismatch')}
+                      className={`inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border-2 px-2.5 py-2 text-xs font-extrabold transition active:scale-95 ${
+                        isMismatch
+                          ? 'border-err bg-err text-err-fg'
+                          : 'border-err/40 bg-surface text-err hover:bg-err hover:text-err-fg'
+                      }`}
+                    >
+                      <X className="h-4 w-4 shrink-0 stroke-[2.5]" />
+                      <span>Fallaron ✕</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* Row 3: Optional Whiteboard Inputs */}
       <section className="w-full max-w-full rounded-2xl border border-line bg-surface p-4 sm:p-5">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <span className="text-xs font-bold text-ink">{t.mentalSync.whiteboardsTitle}</span>
@@ -483,53 +601,6 @@ export function MentalSyncHost({ mode }: GameHostProps) {
             placeholder={t.mentalSync.playerWhiteboard(activeTeam?.playerB || 'B')}
             className="w-full max-w-full rounded-xl border border-line bg-canvas px-3.5 py-2.5 text-base font-semibold text-ink outline-none focus:border-accent sm:text-sm"
           />
-        </div>
-      </section>
-
-      {/* Big Result Triggers */}
-      <section className="w-full max-w-full rounded-2xl border border-line bg-surface p-4 sm:p-5">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <span className="font-mono text-[11px] font-bold tracking-wider text-ink-muted uppercase">
-            {t.mentalSync.triggerHeading}
-          </span>
-          {syncState.result !== 'pending' && (
-            <button
-              type="button"
-              onClick={() => triggerResult('pending')}
-              className="rounded-lg border border-line bg-canvas px-3 py-1 text-xs font-semibold text-ink-muted hover:text-ink"
-            >
-              {t.mentalSync.clearOverlay}
-            </button>
-          )}
-        </div>
-
-        <div className="grid w-full max-w-full grid-cols-1 gap-3 sm:grid-cols-2">
-          <button
-            type="button"
-            disabled={!activeTeam}
-            onClick={() => triggerResult('match')}
-            className={`flex min-h-[60px] w-full items-center justify-center gap-2 rounded-2xl border-2 px-4 py-4 text-lg font-extrabold uppercase transition active:scale-[0.98] disabled:opacity-40 sm:text-xl ${
-              syncState.result === 'match'
-                ? 'border-ok bg-ok text-ok-fg'
-                : 'border-ok/45 bg-ok-soft text-ok hover:bg-ok hover:text-ok-fg'
-            }`}
-          >
-            <Check className="h-6 w-6 shrink-0 stroke-[2.5]" />
-            <span>{t.mentalSync.matchBtn(MENTAL_SYNC_MATCH_POINTS)}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => triggerResult('mismatch')}
-            className={`flex min-h-[60px] w-full items-center justify-center gap-2 rounded-2xl border-2 px-4 py-4 text-lg font-extrabold uppercase transition active:scale-[0.98] sm:text-xl ${
-              syncState.result === 'mismatch'
-                ? 'border-err bg-err text-err-fg'
-                : 'border-err/45 bg-err-soft text-err hover:bg-err hover:text-err-fg'
-            }`}
-          >
-            <X className="h-6 w-6 shrink-0 stroke-[2.5]" />
-            <span>{t.mentalSync.mismatchBtn}</span>
-          </button>
         </div>
       </section>
     </div>

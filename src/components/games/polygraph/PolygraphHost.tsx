@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Activity,
   Check,
   ChevronRight,
   Eye,
@@ -24,6 +25,7 @@ import type {
   PolygraphStatement,
   PolygraphVerdict,
 } from '../../../types/polygraph';
+import { TeamSelectorStrip } from '../../host/TeamSelectorStrip';
 import { usePolygraph } from './usePolygraph';
 
 export function PolygraphHost({ mode }: GameHostProps) {
@@ -40,6 +42,7 @@ export function PolygraphHost({ mode }: GameHostProps) {
     deleteStatement,
     loadSampleStatements,
     pushStatementToScreen,
+    selectTeamForLive,
     setRewardPoints,
     startTimer,
     pauseTimer,
@@ -105,7 +108,10 @@ export function PolygraphHost({ mode }: GameHostProps) {
       <section className="rounded-2xl border border-line bg-surface p-6">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-bold tracking-tight text-ink">{t.polygraph.setupTitle}</h2>
+            <h2 className="flex items-center gap-2 text-lg font-bold tracking-tight text-ink">
+              <Activity className="h-5 w-5 shrink-0 text-accent" />
+              <span>{t.polygraph.setupTitle}</span>
+            </h2>
             <p className="mt-0.5 text-xs text-ink-muted">{t.polygraph.setupDesc}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -424,10 +430,13 @@ export function PolygraphHost({ mode }: GameHostProps) {
   return (
     <div className="w-full max-w-full space-y-5">
       <section className="grid w-full max-w-full grid-cols-1 gap-4 md:grid-cols-12">
-        {/* Statement Selector */}
-        <div className="w-full max-w-full min-w-0 space-y-3 rounded-2xl border border-line bg-surface p-4 sm:p-5 md:col-span-7">
+        {/* Statement Selector + 1-Tap Team Strip */}
+        <div className="w-full max-w-full min-w-0 space-y-3.5 rounded-2xl border border-line bg-surface p-4 sm:p-5 md:col-span-7">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-lg font-extrabold tracking-tight text-ink">{t.polygraph.title}</h2>
+            <h2 className="flex items-center gap-2 text-lg font-extrabold tracking-tight text-ink">
+              <Activity className="h-5 w-5 shrink-0 text-accent" />
+              <span>{t.polygraph.title}</span>
+            </h2>
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-1.5 text-xs">
                 <span className="text-ink-muted">{t.polygraph.correctGuessPts}</span>
@@ -448,6 +457,12 @@ export function PolygraphHost({ mode }: GameHostProps) {
               </button>
             </div>
           </div>
+
+          <TeamSelectorStrip
+            selectedTeamId={activeTeam?.id ?? null}
+            onSelectTeam={selectTeamForLive}
+            label="Equipo en silla caliente:"
+          />
 
           <select
             value={polyState.activeStatementId ?? ''}

@@ -1,10 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Link2, Smartphone, Unlink, Wifi } from 'lucide-react';
+import { Link2, Smartphone, Unlink, Wifi, X } from 'lucide-react';
 import { useShow } from '../../context/ShowContext';
 import { normalizeRoomCode } from '../../lib/mqttSync';
 
-export function RemoteConnectBar() {
+interface RemoteConnectBarProps {
+  visible: boolean;
+  onClose?: () => void;
+}
+
+export function RemoteConnectBar({ visible, onClose }: RemoteConnectBarProps) {
   const {
     roomCode,
     remoteStatus,
@@ -26,7 +31,7 @@ export function RemoteConnectBar() {
 
   const autoConnectedRef = useRef<string | null>(null);
 
-  // Auto-rellenar y conectar automáticamente si ?room=XXXX viene en la URL (ej. desde QR)
+  // Mantener auto-conexión desde URL (?room=XXXX) aunque la tarjeta esté oculta
   useEffect(() => {
     const fromHash = searchParams.get('room');
     const fromWindow =
@@ -42,7 +47,8 @@ export function RemoteConnectBar() {
     }
   }, [searchParams, connectRemoteRoom]);
 
-  // Muestra "Conectado ✓" tan pronto client.connected sea true en MQTT
+  if (!visible) return null;
+
   const isRemoteConnected = remoteStatus === 'connected';
   const isConnecting = remoteStatus === 'connecting' || remoteStatus === 'reconnecting';
   const isLocalOnly = !isRemoteConnected && !isConnecting && localConnectedDisplays > 0;
@@ -64,36 +70,50 @@ export function RemoteConnectBar() {
             <span className="text-xs font-bold text-ink">Conectar Pantalla Remota</span>
           </div>
 
-          <span
-            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${
-              isRemoteConnected || isLocalOnly
-                ? 'border-ok/40 bg-ok-soft text-ok'
-                : isConnecting
-                  ? 'border-warn/40 bg-warn-soft text-warn'
-                  : remoteStatus === 'error'
-                    ? 'border-err/40 bg-err-soft text-err'
-                    : 'border-line bg-canvas text-ink-muted'
-            }`}
-          >
+          <div className="flex items-center gap-1.5">
             <span
-              className={`h-2 w-2 rounded-full ${
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${
                 isRemoteConnected || isLocalOnly
-                  ? 'bg-ok'
+                  ? 'border-ok/40 bg-ok-soft text-ok'
                   : isConnecting
-                    ? 'animate-pulse bg-warn'
+                    ? 'border-warn/40 bg-warn-soft text-warn'
                     : remoteStatus === 'error'
-                      ? 'bg-err'
-                      : 'bg-ink-subtle'
+                      ? 'border-err/40 bg-err-soft text-err'
+                      : 'border-line bg-canvas text-ink-muted'
               }`}
-            />
-            {isRemoteConnected
-              ? `Conectado ✓ (${roomCode})`
-              : isConnecting
-                ? 'Conectando...'
-                : isLocalOnly
-                  ? 'Conectado ✓ (Local)'
-                  : 'Desconectado'}
-          </span>
+            >
+              <span
+                className={`h-2 w-2 rounded-full ${
+                  isRemoteConnected || isLocalOnly
+                    ? 'bg-ok'
+                    : isConnecting
+                      ? 'animate-pulse bg-warn'
+                      : remoteStatus === 'error'
+                        ? 'bg-err'
+                        : 'bg-ink-subtle'
+                }`}
+              />
+              {isRemoteConnected
+                ? `Conectado ✓ (${roomCode})`
+                : isConnecting
+                  ? 'Conectando...'
+                  : isLocalOnly
+                    ? 'Conectado ✓ (Local)'
+                    : 'Desconectado'}
+            </span>
+
+            {onClose && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex h-7 w-7 items-center justify-center rounded-lg border border-line bg-canvas text-ink-subtle hover:text-ink"
+                title="Ocultar panel de conexión"
+                aria-label="Ocultar panel de conexión"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Right: 4-letter Room Code Input + Connect / Disconnect Button */}

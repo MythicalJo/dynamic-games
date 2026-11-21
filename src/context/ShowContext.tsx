@@ -100,6 +100,10 @@ interface ShowContextValue {
   updateTeam: (id: string, patch: Partial<Omit<Team, 'id'>>) => void;
   deleteTeam: (id: string) => void;
   adjustTeamScore: (id: string, delta: number, options?: { silent?: boolean }) => void;
+  adjustMultipleTeamScores: (
+    updates: { teamId: string; delta: number }[],
+    options?: { silent?: boolean }
+  ) => void;
   resetAllScores: () => void;
 
   addQuestion: (input: Omit<PreparedQuestion, 'id'>) => string;
@@ -1102,6 +1106,49 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
     [commitState, pushFlash, triggerCue]
   );
 
+  const adjustMultipleTeamScores = useCallback(
+    (updates: { teamId: string; delta: number }[], options?: { silent?: boolean }) => {
+      const deltaMap = new Map<string, number>();
+      for (const u of updates) {
+        const clean = Math.round(u.delta);
+        if (clean === 0) continue;
+        deltaMap.set(u.teamId, (deltaMap.get(u.teamId) ?? 0) + clean);
+      }
+      if (deltaMap.size === 0) return;
+
+      commitState((prev) => ({
+        ...prev,
+        teams: prev.teams.map((tItem) => {
+          const d = deltaMap.get(tItem.id);
+          return d ? { ...tItem, score: tItem.score + d } : tItem;
+        }),
+      }));
+
+      const now = Date.now();
+      for (const [teamId, delta] of deltaMap.entries()) {
+        const flash: ScoreFlash = {
+          id: createId('flash'),
+          teamId,
+          delta,
+          timestamp: now,
+        };
+        pushFlash(flash);
+        syncRef.current?.broadcastScoreFlash(flash);
+        mqttManager.send({
+          type: 'SCORE_FLASH',
+          senderId: clientIdRef.current,
+          flash,
+        });
+      }
+
+      if (!options?.silent) {
+        const total = Array.from(deltaMap.values()).reduce((sum, v) => sum + v, 0);
+        triggerCue(total >= 0 ? 'scoreUp' : 'scoreDown');
+      }
+    },
+    [commitState, pushFlash, triggerCue]
+  );
+
   const resetAllScores = useCallback(() => {
     commitState((prev) => ({
       ...prev,
@@ -1283,6 +1330,7 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
       updateTeam,
       deleteTeam,
       adjustTeamScore,
+      adjustMultipleTeamScores,
       resetAllScores,
       addQuestion,
       updateQuestion,
@@ -1336,6 +1384,7 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
       updateTeam,
       deleteTeam,
       adjustTeamScore,
+      adjustMultipleTeamScores,
       resetAllScores,
       addQuestion,
       updateQuestion,

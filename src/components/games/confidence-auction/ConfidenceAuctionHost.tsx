@@ -3,6 +3,7 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  Gavel,
   Minus,
   Pause,
   Pencil,
@@ -16,10 +17,11 @@ import {
 import { useShow } from '../../../context/ShowContext';
 import { formatBroadcastTimer } from '../../../lib/timer';
 import type { GameHostProps } from '../../../modules/registry';
+import { TeamSelectorStrip } from '../../host/TeamSelectorStrip';
 import { useConfidenceAuction } from './useConfidenceAuction';
 
 export function ConfidenceAuctionHost({ mode }: GameHostProps) {
-  const { state, t } = useShow();
+  const { t } = useShow();
   const {
     auctionState,
     winningTeam,
@@ -75,7 +77,10 @@ export function ConfidenceAuctionHost({ mode }: GameHostProps) {
       <section className="rounded-2xl border border-line bg-surface p-6">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-bold tracking-tight text-ink">{t.auction.setupTitle}</h2>
+            <h2 className="flex items-center gap-2 text-lg font-bold tracking-tight text-ink">
+              <Gavel className="h-5 w-5 shrink-0 text-accent" />
+              <span>{t.auction.setupTitle}</span>
+            </h2>
             <p className="mt-0.5 text-xs text-ink-muted">{t.auction.setupDesc}</p>
           </div>
           <button
@@ -230,10 +235,13 @@ export function ConfidenceAuctionHost({ mode }: GameHostProps) {
 
   return (
     <div className="w-full max-w-full space-y-5">
-      {/* Category + Team + Bid Counter */}
+      {/* Category + 1-Tap Team Strip + Bid Counter */}
       <section className="w-full max-w-full rounded-2xl border border-line bg-surface p-4 sm:p-5">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-lg font-extrabold tracking-tight text-ink">{t.auction.title}</h2>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="flex items-center gap-2 text-lg font-extrabold tracking-tight text-ink">
+            <Gavel className="h-5 w-5 shrink-0 text-accent" />
+            <span>{t.auction.title}</span>
+          </h2>
           <div className="flex flex-wrap items-center gap-1.5">
             <button
               type="button"
@@ -264,6 +272,14 @@ export function ConfidenceAuctionHost({ mode }: GameHostProps) {
               <ChevronRight className="h-4 w-4" />
             </button>
           </div>
+        </div>
+
+        <div className="mb-4">
+          <TeamSelectorStrip
+            selectedTeamId={winningTeam?.id ?? null}
+            onSelectTeam={setWinningTeam}
+            label="Equipo ganador de la subasta:"
+          />
         </div>
 
         <div className="grid w-full max-w-full grid-cols-1 gap-4 md:grid-cols-12">
@@ -298,38 +314,20 @@ export function ConfidenceAuctionHost({ mode }: GameHostProps) {
               )}
             </div>
 
-            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-12">
-              <div className="min-w-0 sm:col-span-8">
-                <label className="mb-1 block text-xs font-semibold text-ink-muted">
-                  {t.auction.assignWinningTeam}
-                </label>
-                <select
-                  value={winningTeam?.id ?? ''}
-                  onChange={(e) => setWinningTeam(e.target.value)}
-                  className="w-full max-w-full rounded-xl border border-line bg-canvas px-3 py-2.5 text-xs font-bold text-ink outline-none focus:border-accent sm:py-2"
-                >
-                  {state.teams.length === 0 && (
-                    <option value="">{t.common.noTeamsRegistered}</option>
-                  )}
-                  {state.teams.map((teamItem) => (
-                    <option key={teamItem.id} value={teamItem.id}>
-                      {teamItem.name} ({teamItem.playerA} y {teamItem.playerB})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="min-w-0 sm:col-span-4">
-                <label className="mb-1 block text-xs font-semibold text-ink-muted">
-                  {t.auction.winPoints}
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  value={auctionState.rewardPoints}
-                  onChange={(e) => setRewardPoints(Number(e.target.value))}
-                  className="w-full max-w-full rounded-xl border border-line bg-canvas px-3 py-2.5 font-mono text-sm font-bold text-ink outline-none focus:border-accent sm:py-2 sm:text-xs"
-                />
-              </div>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <label className="text-xs font-semibold text-ink-muted">
+                {t.auction.winPoints}:
+              </label>
+              <input
+                type="number"
+                min={1}
+                value={auctionState.rewardPoints}
+                onChange={(e) => setRewardPoints(Number(e.target.value))}
+                className="w-24 rounded-xl border border-line bg-canvas px-3 py-2 text-center font-mono text-sm font-bold text-ink outline-none focus:border-accent sm:text-xs"
+              />
+              <span className="text-[11px] text-ink-subtle">
+                (si fallan: +10 pts a los demás)
+              </span>
             </div>
           </div>
 
@@ -504,8 +502,16 @@ export function ConfidenceAuctionHost({ mode }: GameHostProps) {
       </section>
 
       {/* Round Verdict Actions */}
-      <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-surface p-4">
-        <span className="text-xs font-medium text-ink-muted">
+      <section className="flex w-full max-w-full flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-surface p-4">
+        <span
+          className={`text-xs font-semibold ${
+            auctionState.outcome === 'failed'
+              ? 'text-err'
+              : auctionState.outcome === 'won'
+                ? 'text-ok'
+                : 'text-ink-muted'
+          }`}
+        >
           {auctionState.outcome === 'won' &&
             t.auction.verdictWon(auctionState.awardedPoints, winningTeam?.name ?? '')}
           {auctionState.outcome === 'failed' && t.auction.verdictFailed}

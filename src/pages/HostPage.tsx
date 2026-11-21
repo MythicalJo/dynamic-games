@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Database,
   ExternalLink,
@@ -33,13 +33,36 @@ function HostWorkspace() {
     setDisplayMode,
     setActiveModuleId,
     connectedDisplays,
+    localConnectedDisplays,
+    roomCode,
+    remoteStatus,
     t,
   } = useShow();
 
   const [topMode, setTopMode] = useState<TopMode>('live');
   const [setupSection, setSetupSection] = useState<SetupSection>('teams');
+  const [remoteCardOpen, setRemoteCardOpen] = useState<boolean>(
+    () => remoteStatus !== 'connected'
+  );
+  const prevRemoteStatusRef = useRef(remoteStatus);
   const { shortcutNotice } = useHostShortcuts();
   useWakeLock(true);
+
+  // Auto-ocultar la tarjeta de conexión tan pronto MQTT quede "Conectado ✓"
+  useEffect(() => {
+    const prev = prevRemoteStatusRef.current;
+    prevRemoteStatusRef.current = remoteStatus;
+    if (remoteStatus === 'connected' && prev !== 'connected') {
+      setRemoteCardOpen(false);
+    } else if (remoteStatus === 'disconnected' && prev === 'connected') {
+      setRemoteCardOpen(true);
+    }
+  }, [remoteStatus]);
+
+  const isRemoteConnected = remoteStatus === 'connected';
+  const isRemoteConnecting =
+    remoteStatus === 'connecting' || remoteStatus === 'reconnecting';
+  const isLocalOnly = !isRemoteConnected && !isRemoteConnecting && localConnectedDisplays > 0;
 
   const activeModule = getActiveGameModule(state.activeModuleId);
   const ActiveHostComponent = activeModule.HostComponent;
@@ -72,14 +95,49 @@ function HostWorkspace() {
       {/* ================================================================= */}
       <header className="sticky top-0 z-30 w-full max-w-full border-b border-line bg-canvas/95 backdrop-blur-md">
         <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-2.5 px-3 py-2.5 sm:px-6 sm:py-3">
-          {/* Left: Brand + Audience Screen Launcher */}
-          <div className="flex min-w-0 flex-wrap items-center gap-2.5">
+          {/* Left: Brand + Compact Remote Status Pill + Desktop Display Launcher */}
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
             <Link to="/" className="flex min-w-0 items-center gap-2 font-bold tracking-tight text-ink">
               <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-accent" />
               <span className="truncate text-sm uppercase">
                 {state.eventMeta.title || 'PUNTOS RÁPIDOS'}
               </span>
             </Link>
+
+            {/* Discreet Remote Room Pill (green dot + room code; taps toggle the full connection card) */}
+            <button
+              type="button"
+              onClick={() => setRemoteCardOpen((v) => !v)}
+              title="Estado de pantalla remota — toca para abrir o cerrar el panel de sala"
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[11px] font-extrabold tracking-wider transition active:scale-95 ${
+                isRemoteConnected
+                  ? 'border-ok/40 bg-ok-soft text-ok'
+                  : isRemoteConnecting
+                    ? 'border-warn/40 bg-warn-soft text-warn'
+                    : isLocalOnly
+                      ? 'border-ok/35 bg-ok-soft text-ok'
+                      : 'border-line bg-surface text-ink-muted hover:border-line-strong hover:text-ink'
+              }`}
+            >
+              <span
+                className={`h-2 w-2 rounded-full ${
+                  isRemoteConnected || isLocalOnly
+                    ? 'bg-ok'
+                    : isRemoteConnecting
+                      ? 'animate-pulse bg-warn'
+                      : 'bg-ink-subtle'
+                }`}
+              />
+              <span>
+                {isRemoteConnected
+                  ? roomCode || 'LIVE'
+                  : isRemoteConnecting
+                    ? roomCode || '...'
+                    : isLocalOnly
+                      ? 'LOCAL'
+                      : 'SALA'}
+              </span>
+            </button>
 
             <span className="hidden h-4 w-px bg-line sm:inline-block" />
 
@@ -163,9 +221,12 @@ function HostWorkspace() {
       {/* ================================================================= */}
       {/* MAIN WORKSPACE                                                    */}
       {/* ================================================================= */}
-      <main className="mx-auto w-full max-w-7xl flex-1 space-y-4 overflow-x-hidden px-3 py-4 sm:space-y-5 sm:px-6 sm:py-6">
-        {/* Compact Cross-Device Remote Display Connector */}
-        <RemoteConnectBar />
+      <main className="mx-auto w-full max-w-7xl flex-1 space-y-4 overflow-x-hidden px-3 pt-4 pb-28 sm:space-y-5 sm:px-6 sm:pt-6 sm:pb-24">
+        {/* Compact Cross-Device Remote Display Connector (auto-hides when connected) */}
+        <RemoteConnectBar
+          visible={remoteCardOpen}
+          onClose={() => setRemoteCardOpen(false)}
+        />
 
         {topMode === 'live' ? (
           <div className="w-full max-w-full space-y-5">
@@ -221,6 +282,7 @@ function HostWorkspace() {
                 </span>
                 {GAME_MODULES.map((mod) => {
                   const isSelected = activeModule.id === mod.id;
+                  const ModIcon = mod.icon;
                   const copy =
                     t.modules.list[mod.id as keyof typeof t.modules.list] ?? mod;
                   return (
@@ -228,13 +290,14 @@ function HostWorkspace() {
                       key={mod.id}
                       type="button"
                       onClick={() => setActiveModuleId(mod.id)}
-                      className={`min-h-[38px] rounded-lg border px-3 py-1.5 text-xs font-semibold transition sm:min-h-0 sm:px-2.5 ${
+                      className={`inline-flex min-h-[38px] items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition sm:min-h-0 sm:px-2.5 ${
                         isSelected
                           ? 'border-ink bg-ink text-canvas'
                           : 'border-line bg-canvas text-ink-muted hover:border-line-strong hover:text-ink'
                       }`}
                     >
-                      {copy.shortName}
+                      <ModIcon className="h-3.5 w-3.5 shrink-0" />
+                      <span>{copy.shortName}</span>
                     </button>
                   );
                 })}
@@ -321,6 +384,7 @@ function HostWorkspace() {
                 <div className="flex flex-wrap items-center gap-2">
                   {GAME_MODULES.map((mod) => {
                     const isSelected = activeModule.id === mod.id;
+                    const ModIcon = mod.icon;
                     const copy =
                       t.modules.list[mod.id as keyof typeof t.modules.list] ?? mod;
                     return (
@@ -328,13 +392,14 @@ function HostWorkspace() {
                         key={mod.id}
                         type="button"
                         onClick={() => setActiveModuleId(mod.id)}
-                        className={`min-h-[38px] rounded-xl border px-3.5 py-2 text-xs font-bold transition sm:min-h-0 ${
+                        className={`inline-flex min-h-[38px] items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-bold transition sm:min-h-0 ${
                           isSelected
                             ? 'border-accent bg-accent text-accent-fg'
                             : 'border-line bg-surface text-ink-muted hover:border-line-strong hover:text-ink'
                         }`}
                       >
-                        {copy.shortName}
+                        <ModIcon className="h-3.5 w-3.5 shrink-0" />
+                        <span>{copy.shortName}</span>
                       </button>
                     );
                   })}

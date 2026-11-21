@@ -6,6 +6,75 @@ let noiseBuffer: AudioBuffer | null = null;
 let buzzerCurve: Float32Array<ArrayBuffer> | null = null;
 const unlockListeners = new Set<(unlocked: boolean) => void>();
 
+const CUSTOM_SFX_PATHS: Partial<Record<SoundCue, string>> = {
+  timeUp: './sfx-tiempo.mp3',
+  miss: './sfx-equivocado.mp3',
+};
+
+interface CustomSfxEntry {
+  audio: HTMLAudioElement;
+  failed: boolean;
+}
+
+const customSfxCache = new Map<SoundCue, CustomSfxEntry>();
+
+function getOrCreateCustomSfx(cue: SoundCue): CustomSfxEntry | null {
+  if (typeof window === 'undefined' || typeof Audio === 'undefined') return null;
+  const src = CUSTOM_SFX_PATHS[cue];
+  if (!src) return null;
+
+  const existing = customSfxCache.get(cue);
+  if (existing) return existing;
+
+  const audio = new Audio(src);
+  audio.preload = 'auto';
+  const entry: CustomSfxEntry = { audio, failed: false };
+  audio.addEventListener('error', () => {
+    entry.failed = true;
+  });
+  customSfxCache.set(cue, entry);
+  return entry;
+}
+
+/**
+ * Precarga los archivos MP3 locales (`./sfx-tiempo.mp3` y `./sfx-equivocado.mp3`)
+ * cuando se desbloquea el audio en /display.
+ */
+export function preloadCustomSfx(): void {
+  if (typeof window === 'undefined' || typeof Audio === 'undefined') return;
+  for (const cue of Object.keys(CUSTOM_SFX_PATHS) as SoundCue[]) {
+    const entry = getOrCreateCustomSfx(cue);
+    if (entry && !entry.failed) {
+      try {
+        entry.audio.load();
+      } catch {
+        // ignorar
+      }
+    }
+  }
+}
+
+function playCustomSfxWithFallback(cue: SoundCue, fallback: () => void): void {
+  const entry = getOrCreateCustomSfx(cue);
+  if (!entry || entry.failed || entry.audio.error) {
+    fallback();
+    return;
+  }
+
+  try {
+    entry.audio.pause();
+    entry.audio.currentTime = 0;
+    const result = entry.audio.play();
+    if (result && typeof result.catch === 'function') {
+      result.catch(() => {
+        fallback();
+      });
+    }
+  } catch {
+    fallback();
+  }
+}
+
 function notifyUnlockState(unlocked: boolean) {
   for (const listener of unlockListeners) {
     listener(unlocked);
@@ -84,6 +153,7 @@ export function subscribeAudioUnlock(listener: (unlocked: boolean) => void): () 
 
 export async function unlockAudio(): Promise<boolean> {
   try {
+    preloadCustomSfx();
     const engine = getAudioEngine();
     if (!engine) return false;
     if (engine.ctx.state !== 'running') {
@@ -324,13 +394,16 @@ export function playBroadcastCue(cue: SoundCue): void {
         break;
 
       case 'timeUp':
-        // "Se acabó el tiempo": 3 rapid high-energy alarm beeps + sustained descending TV horn
-        playTimesUpAlarm(engine);
+        // "Se acabó el tiempo": intenta ./sfx-tiempo.mp3 y cae a la alarma sintetizada si falta
+        playCustomSfxWithFallback('timeUp', () => playTimesUpAlarm(engine));
         break;
 
       case 'miss':
+        // "Respuesta Equivocada": intenta ./sfx-equivocado.mp3 y cae a la chicharra grave si falta
+        playCustomSfxWithFallback('miss', () => playWrongAnswerBuzzer(engine, 0, 0.42));
+        break;
+
       case 'scoreDown':
-        // "Respuesta Equivocada": short, punchy, aggressive low-pitched X buzzer (~0.42s, 110Hz-135Hz)
         playWrongAnswerBuzzer(engine, 0, 0.42);
         break;
 

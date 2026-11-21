@@ -4,6 +4,7 @@ import { createTimerState, normalizeTimerState, type SyncedTimerState } from '..
 export const CONFIDENCE_AUCTION_MODULE_ID = 'confidence-auction';
 export const AUCTION_DEFAULT_SECONDS = 30;
 export const AUCTION_DEFAULT_REWARD_POINTS = 25;
+export const AUCTION_FAIL_BONUS_OTHER_TEAMS = 10;
 
 export interface AuctionCategory {
   id: string;
@@ -23,6 +24,8 @@ export interface ConfidenceAuctionState {
   hits: number;
   rewardPoints: number;
   awardedPoints: number;
+  /** Equipos rivales que recibieron +10 pts cuando el equipo activo falló la meta (para poder deshacer) */
+  failedBonusTeamIds: string[];
   outcome: AuctionOutcome;
   timer: SyncedTimerState;
 }
@@ -42,6 +45,7 @@ export function createInitialConfidenceAuctionState(
     hits: 0,
     rewardPoints: AUCTION_DEFAULT_REWARD_POINTS,
     awardedPoints: 0,
+    failedBonusTeamIds: [],
     outcome: 'pending',
     timer: createTimerState(AUCTION_DEFAULT_SECONDS),
   };
@@ -104,6 +108,9 @@ export function normalizeConfidenceAuctionState(
       typeof obj.awardedPoints === 'number' && Number.isFinite(obj.awardedPoints)
         ? Math.round(obj.awardedPoints)
         : 0,
+    failedBonusTeamIds: Array.isArray(obj.failedBonusTeamIds)
+      ? obj.failedBonusTeamIds.filter((id): id is string => typeof id === 'string')
+      : [],
     outcome,
     timer: normalizeTimerState(obj.timer, AUCTION_DEFAULT_SECONDS),
   };

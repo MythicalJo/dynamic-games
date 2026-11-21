@@ -198,9 +198,9 @@ export function ConfidenceAuctionDisplay() {
                 key="fail"
                 initial={{ scale: 0.85, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                className="inline-flex items-center gap-1.5 rounded-full bg-err px-4 py-1 font-mono text-sm font-bold text-err-fg"
+                className="inline-flex items-center gap-1.5 rounded-full bg-err px-4 py-1.5 font-mono text-sm font-bold text-err-fg md:text-base"
               >
-                <X className="h-4 w-4 stroke-[2.5]" />
+                <X className="h-4 w-4 shrink-0 stroke-[2.5]" />
                 {t.auction.display.bustBanner}
               </motion.span>
             ) : targetHit ? (

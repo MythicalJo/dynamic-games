@@ -14,6 +14,7 @@ import {
   Trophy,
   Users,
   X,
+  Zap,
 } from 'lucide-react';
 import { useShow } from '../../../context/ShowContext';
 import {
@@ -22,6 +23,7 @@ import {
 } from '../../../lib/spanishBank';
 import type { GameHostProps } from '../../../modules/registry';
 import type { FastMoneyStage } from '../../../types/fastMoney';
+import { TeamSelectorStrip } from '../../host/TeamSelectorStrip';
 import { useFastMoney } from './useFastMoney';
 
 function formatClock(ms: number): string {
@@ -44,7 +46,7 @@ const CATEGORIES: ('Todas' | FastMoneyCategory)[] = [
 ];
 
 export function FastMoneyHost({ mode }: GameHostProps) {
-  const { state, triggerCue, t } = useShow();
+  const { triggerCue, t } = useShow();
   const {
     fmState,
     stage,
@@ -128,11 +130,12 @@ export function FastMoneyHost({ mode }: GameHostProps) {
 
     return (
       <div className="space-y-5">
-        <section className="rounded-2xl border border-line bg-surface p-6">
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <section className="w-full max-w-full rounded-2xl border border-line bg-surface p-4 sm:p-6">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="text-lg font-bold tracking-tight text-ink">
-                {t.fastMoney.setup.heading(selectedTeam.name)}
+              <h2 className="flex items-center gap-2 text-lg font-bold tracking-tight text-ink">
+                <Zap className="h-5 w-5 shrink-0 text-accent" />
+                <span>{t.fastMoney.setup.heading(selectedTeam.name)}</span>
               </h2>
               <p className="mt-0.5 text-xs text-ink-muted">
                 {t.fastMoney.setup.desc} ({FAST_MONEY_QUESTION_BANK.length} preguntas en el banco ·{' '}
@@ -141,18 +144,6 @@ export function FastMoneyHost({ mode }: GameHostProps) {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <select
-                value={selectedTeam.id}
-                onChange={(e) => selectTeam(e.target.value)}
-                className="rounded-xl border border-line bg-canvas px-3 py-2 text-xs font-bold text-ink outline-none focus:border-accent"
-              >
-                {state.teams.map((teamItem) => (
-                  <option key={teamItem.id} value={teamItem.id}>
-                    {teamItem.name} ({teamItem.playerA} y {teamItem.playerB})
-                  </option>
-                ))}
-              </select>
-
               <button
                 type="button"
                 onClick={loadRandomFiveQuestions}
@@ -184,6 +175,14 @@ export function FastMoneyHost({ mode }: GameHostProps) {
                 {maskSecrets ? t.fastMoney.setup.showSecrets : t.fastMoney.setup.hideSecrets}
               </button>
             </div>
+          </div>
+
+          <div className="mb-5">
+            <TeamSelectorStrip
+              selectedTeamId={selectedTeam.id}
+              onSelectTeam={selectTeam}
+              label="Preparar respuestas secretas de:"
+            />
           </div>
 
           {/* 5 Preguntas y Respuestas Secretas */}
@@ -351,27 +350,24 @@ export function FastMoneyHost({ mode }: GameHostProps) {
 
   return (
     <div className="w-full max-w-full space-y-5">
-      {/* Header + 4-Phase Step Indicator */}
+      {/* Header + 1-Tap Team Strip + 4-Phase Step Indicator */}
       <section className="w-full max-w-full rounded-2xl border border-line bg-surface p-4 sm:p-5">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex w-full max-w-full flex-wrap items-center gap-2.5 sm:w-auto sm:gap-3">
-            <h2 className="text-lg font-extrabold tracking-tight text-ink">{t.fastMoney.title}</h2>
-            <select
-              value={selectedTeam.id}
-              onChange={(e) => selectTeam(e.target.value)}
-              className="w-full max-w-full rounded-xl border border-line bg-canvas px-3 py-2 text-xs font-bold text-ink outline-none focus:border-accent sm:w-auto sm:py-1.5"
-            >
-              {state.teams.map((teamItem) => (
-                <option key={teamItem.id} value={teamItem.id}>
-                  {teamItem.name} ({teamItem.playerA} y {teamItem.playerB})
-                </option>
-              ))}
-            </select>
-          </div>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="flex items-center gap-2 text-lg font-extrabold tracking-tight text-ink">
+            <Zap className="h-5 w-5 shrink-0 text-accent" />
+            <span>{t.fastMoney.title}</span>
+          </h2>
 
           <span className="rounded-full border border-line bg-canvas px-3 py-1 font-mono text-xs font-bold text-ink">
             Combinado: +{combinedTotal} pts
           </span>
+        </div>
+
+        <div className="mb-4">
+          <TeamSelectorStrip
+            selectedTeamId={selectedTeam.id}
+            onSelectTeam={selectTeam}
+          />
         </div>
 
         {/* 4-Phase Sequential Stepper */}

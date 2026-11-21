@@ -28,6 +28,8 @@ export interface MentalSyncState {
   showWhiteboardsOnDisplay: boolean;
   result: MentalSyncResult;
   awardedPoints: number;
+  /** Resultado por equipo en la pregunta actual (para calificar a todos los equipos rápido) */
+  teamResults: Record<string, MentalSyncResult>;
   /** Historial de textos ya sorteados para evitar repeticiones en "Cargar 12 al azar" */
   recentPromptTexts: string[];
 }
@@ -52,6 +54,7 @@ export function createInitialMentalSyncState(firstTeamId: string | null): Mental
     showWhiteboardsOnDisplay: false,
     result: 'pending',
     awardedPoints: 0,
+    teamResults: {},
     recentPromptTexts: initialDeck.map((p) => p.text),
   };
 }
@@ -94,6 +97,15 @@ export function normalizeMentalSyncState(
     ? obj.recentPromptTexts.filter((item): item is string => typeof item === 'string')
     : [];
 
+  const teamResults: Record<string, MentalSyncResult> = {};
+  if (obj.teamResults && typeof obj.teamResults === 'object' && !Array.isArray(obj.teamResults)) {
+    for (const [teamId, val] of Object.entries(obj.teamResults)) {
+      if (val === 'match' || val === 'mismatch' || val === 'pending') {
+        teamResults[teamId] = val;
+      }
+    }
+  }
+
   return {
     prompts,
     selectedPromptId,
@@ -112,6 +124,7 @@ export function normalizeMentalSyncState(
       typeof obj.awardedPoints === 'number' && Number.isFinite(obj.awardedPoints)
         ? Math.round(obj.awardedPoints)
         : 0,
+    teamResults,
     recentPromptTexts,
   };
 }

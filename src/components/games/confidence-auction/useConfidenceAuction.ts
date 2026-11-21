@@ -8,6 +8,7 @@ import {
 } from '../../../lib/timer';
 import {
   AUCTION_DEFAULT_SECONDS,
+  AUCTION_FAIL_BONUS_OTHER_TEAMS,
   CONFIDENCE_AUCTION_MODULE_ID,
   normalizeConfidenceAuctionState,
   SAMPLE_AUCTION_CATEGORIES,
@@ -17,7 +18,7 @@ import {
 } from '../../../types/confidenceAuction';
 
 export function useConfidenceAuction() {
-  const { state, role, setModuleData, adjustTeamScore, triggerCue } = useShow();
+  const { state, role, setModuleData, adjustMultipleTeamScores, triggerCue } = useShow();
   const fallbackTeamId = state.teams[0]?.id ?? null;
 
   const auctionState = useMemo(
@@ -132,6 +133,7 @@ export function useConfidenceAuction() {
       hits: 0,
       outcome: 'pending',
       awardedPoints: 0,
+      failedBonusTeamIds: [],
       timer: createTimerState(AUCTION_DEFAULT_SECONDS),
     }));
   }, [commit]);
@@ -149,6 +151,7 @@ export function useConfidenceAuction() {
         hits: 0,
         outcome: 'pending',
         awardedPoints: 0,
+        failedBonusTeamIds: [],
         timer: createTimerState(AUCTION_DEFAULT_SECONDS),
       }));
       triggerCue('switch');
@@ -182,6 +185,7 @@ export function useConfidenceAuction() {
         hits: 0,
         outcome: 'pending',
         awardedPoints: 0,
+        failedBonusTeamIds: [],
         timer: createTimerState(AUCTION_DEFAULT_SECONDS),
       };
     });
@@ -215,6 +219,7 @@ export function useConfidenceAuction() {
         winningTeamId: teamId,
         outcome: 'pending',
         awardedPoints: 0,
+        failedBonusTeamIds: [],
       }));
     },
     [commit]
@@ -310,15 +315,42 @@ export function useConfidenceAuction() {
 
   const setOutcome = useCallback(
     (outcome: AuctionOutcome) => {
-      const teamId = winningTeam?.id ?? null;
-      const prevAwarded = auctionState.awardedPoints;
-      const nextAwarded = outcome === 'won' ? auctionState.rewardPoints : 0;
-      const delta = nextAwarded - prevAwarded;
+      if (outcome === auctionState.outcome) return;
+
+      const activeTeamId = winningTeam?.id ?? null;
+      const scoreUpdates: { teamId: string; delta: number }[] = [];
+
+      // 1. Revertir cualquier puntaje previamente aplicado en esta ronda
+      if (activeTeamId && auctionState.awardedPoints !== 0) {
+        scoreUpdates.push({ teamId: activeTeamId, delta: -auctionState.awardedPoints });
+      }
+      for (const bonusId of auctionState.failedBonusTeamIds) {
+        scoreUpdates.push({ teamId: bonusId, delta: -AUCTION_FAIL_BONUS_OTHER_TEAMS });
+      }
+
+      // 2. Aplicar el nuevo veredicto:
+      //    - 'won': +rewardPoints al equipo activo
+      //    - 'failed': 0 al equipo activo y +10 pts a TODOS los demás equipos
+      let nextAwarded = 0;
+      let nextFailedBonusIds: string[] = [];
+
+      if (outcome === 'won' && activeTeamId) {
+        nextAwarded = auctionState.rewardPoints;
+        scoreUpdates.push({ teamId: activeTeamId, delta: nextAwarded });
+      } else if (outcome === 'failed') {
+        nextFailedBonusIds = state.teams
+          .filter((tItem) => tItem.id !== activeTeamId)
+          .map((tItem) => tItem.id);
+        for (const otherId of nextFailedBonusIds) {
+          scoreUpdates.push({ teamId: otherId, delta: AUCTION_FAIL_BONUS_OTHER_TEAMS });
+        }
+      }
 
       commit((prev) => ({
         ...prev,
         outcome,
         awardedPoints: nextAwarded,
+        failedBonusTeamIds: nextFailedBonusIds,
         timer: prev.timer.isRunning
           ? {
               ...prev.timer,
@@ -329,14 +361,24 @@ export function useConfidenceAuction() {
           : prev.timer,
       }));
 
-      if (teamId && delta !== 0) {
-        adjustTeamScore(teamId, delta, { silent: true });
+      if (scoreUpdates.length > 0) {
+        adjustMultipleTeamScores(scoreUpdates, { silent: true });
       }
 
       if (outcome === 'won') triggerCue('targetHit');
       else if (outcome === 'failed') triggerCue('miss');
     },
-    [adjustTeamScore, auctionState.awardedPoints, auctionState.rewardPoints, commit, triggerCue, winningTeam]
+    [
+      adjustMultipleTeamScores,
+      auctionState.awardedPoints,
+      auctionState.failedBonusTeamIds,
+      auctionState.outcome,
+      auctionState.rewardPoints,
+      commit,
+      state.teams,
+      triggerCue,
+      winningTeam,
+    ]
   );
 
   const resetRound = useCallback(() => {
@@ -345,6 +387,7 @@ export function useConfidenceAuction() {
       hits: 0,
       outcome: 'pending',
       awardedPoints: 0,
+      failedBonusTeamIds: [],
       timer: createTimerState(AUCTION_DEFAULT_SECONDS),
     }));
   }, [commit]);

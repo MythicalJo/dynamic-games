@@ -178,6 +178,17 @@ export type SyncMessage =
       senderId: string;
     }
   | {
+      type: 'PING';
+      senderId: string;
+      timestamp: number;
+    }
+  | {
+      type: 'PONG';
+      senderId: string;
+      timestamp: number;
+      audioUnlocked?: boolean;
+    }
+  | {
       type: 'HEARTBEAT';
       senderId: string;
       role: ClientRole;

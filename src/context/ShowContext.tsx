@@ -10,7 +10,9 @@ import { TRANSLATIONS, type Translations } from '../lib/i18n';
 import {
   getOrCreateDisplayRoomCode,
   loadLastHostRoomCode,
-  PeerSyncClient,
+  normalizeRoomCode,
+  peerManager,
+  type PeerSyncHandlers,
 } from '../lib/peerSync';
 import { loadPersistedState, ShowSyncClient, type PeerInfo, type SyncTransport } from '../lib/sync';
 import {
@@ -182,7 +184,9 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
 
   const connectedDisplaysRef = useRef<number>(0);
   const syncRef = useRef<ShowSyncClient | null>(null);
-  const peerSyncRef = useRef<PeerSyncClient | null>(null);
+  const [activePeerRoom, setActivePeerRoom] = useState<string>(() =>
+    role === 'display' ? getOrCreateDisplayRoomCode() : ''
+  );
 
   const ensureAudioElement = useCallback((): HTMLAudioElement => {
     if (!audioElRef.current) {
@@ -285,7 +289,7 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
 
   const sendAllHeartbeats = useCallback(() => {
     syncRef.current?.sendHeartbeat();
-    peerSyncRef.current?.send({
+    peerManager.send({
       type: 'HEARTBEAT',
       senderId: clientIdRef.current,
       role,
@@ -315,7 +319,7 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
     const tracks = musicTracksRef.current;
     const ctrl = musicControlRef.current;
     syncRef.current?.broadcastMusicCatalog(tracks, ctrl);
-    peerSyncRef.current?.send({
+    peerManager.send({
       type: 'MUSIC_CATALOG',
       senderId: clientIdRef.current,
       tracks,
@@ -468,165 +472,199 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
   ]);
 
   // =========================================================================
-  // 2. CROSS-DEVICE REMOTE SYNC (PeerJS P2P DataConnection)
+  // 2. CROSS-DEVICE REMOTE SYNC (PeerJS singleton aislado de re-renders)
   // =========================================================================
-  useEffect(() => {
-    const peerClient = new PeerSyncClient(
-      {
-        role,
-        clientId: clientIdRef.current,
-        onRoomCodeChange: (code) => setRoomCode(code),
-        onStatusChange: (status, err) => {
-          setRemoteStatus(status);
-          setRemoteError(err);
-          if (status === 'disconnected') {
-            setRemoteDisplayAudioReady(false);
-          }
-        },
-        onConnectionsChange: (count) => {
-          setRemoteConnectedCount(count);
-          if (count === 0) {
-            setRemoteDisplayAudioReady(false);
-          }
-        },
-        onPeerOpened: (conn) => {
-          // Enviar heartbeat inmediato
-          peerClient.sendToConnection(conn, {
-            type: 'HEARTBEAT',
-            senderId: clientIdRef.current,
-            role,
-            timestamp: Date.now(),
-            audioUnlocked: isAudioUnlocked(),
-          });
+  // Handlers siempre frescos dentro de useRef: actualizar estado/puntaje/timer
+  // JAMÁS dispara desmontaje ni reconexión del Peer.
+  const peerHandlersRef = useRef<PeerSyncHandlers>({
+    clientId: clientIdRef.current,
+    getAudioUnlocked: () => isAudioUnlocked(),
+    onRoomCodeChange: (code) => setRoomCode(code),
+    onStatusChange: (status, err) => {
+      setRemoteStatus(status);
+      setRemoteError(err);
+      if (status === 'disconnected') {
+        setRemoteDisplayAudioReady(false);
+      }
+    },
+    onConnectionsChange: (count) => {
+      setRemoteConnectedCount(count);
+      if (count === 0) {
+        setRemoteDisplayAudioReady(false);
+      }
+    },
+    onPeerOpened: () => {},
+    onMessage: () => {},
+  });
 
-          if (role === 'host') {
-            // Empujar el estado completo al conectar o reconectar
-            peerClient.sendToConnection(conn, {
-              type: 'STATE_UPDATE',
-              senderId: clientIdRef.current,
-              role: 'host',
-              state: stateRef.current,
-            });
-            // Pedir al /display si ya tiene pistas de música cargadas
-            peerClient.sendToConnection(conn, {
-              type: 'MUSIC_REQUEST',
-              senderId: clientIdRef.current,
-            });
-          } else {
-            // /display pide estado actualizado al /host y comparte su catálogo local de música
-            peerClient.sendToConnection(conn, {
-              type: 'REQUEST_STATE',
-              senderId: clientIdRef.current,
-              role: 'display',
-            });
-            if (musicTracksRef.current.length > 0) {
-              peerClient.sendToConnection(conn, {
-                type: 'MUSIC_CATALOG',
-                senderId: clientIdRef.current,
-                tracks: musicTracksRef.current,
-                control: musicControlRef.current,
-              });
-            }
-          }
-        },
-        onMessage: (msg: SyncMessage) => {
-          switch (msg.type) {
-            case 'STATE_UPDATE':
-              handleIncomingState(msg.state, msg.role);
-              break;
-            case 'REQUEST_STATE':
-              if (role === 'host') {
-                peerClient.send({
-                  type: 'STATE_UPDATE',
-                  senderId: clientIdRef.current,
-                  role: 'host',
-                  state: stateRef.current,
-                });
-              }
-              break;
-            case 'SCORE_FLASH':
-              pushFlash(msg.flash);
-              break;
-            case 'SOUND_CUE':
-              if (!stateRef.current.audioMuted && soundEnabledRef.current) {
-                playBroadcastCue(msg.cue);
-              }
-              break;
-            case 'MUSIC_CATALOG':
-              if (role === 'host') {
-                setMusicTracks(msg.tracks);
-                setMusicControl(msg.control);
-                musicControlRef.current = msg.control;
-                setMusicHostedOnDisplay(msg.tracks.length > 0);
-              }
-              break;
-            case 'MUSIC_CONTROL':
-              handleIncomingMusicControl(msg.control);
-              break;
-            case 'MUSIC_REMOVE':
-              handleIncomingMusicRemove(msg.trackId);
-              break;
-            case 'MUSIC_REQUEST':
-              if (role === 'display' && musicTracksRef.current.length > 0) {
-                peerClient.send({
-                  type: 'MUSIC_CATALOG',
-                  senderId: clientIdRef.current,
-                  tracks: musicTracksRef.current,
-                  control: musicControlRef.current,
-                });
-              }
-              break;
-            case 'HEARTBEAT':
-              if (msg.role === 'display' && msg.audioUnlocked !== undefined) {
-                setRemoteDisplayAudioReady(msg.audioUnlocked);
-              }
-              break;
-          }
-        },
-      },
-      () => ({
+  peerHandlersRef.current = {
+    clientId: clientIdRef.current,
+    getAudioUnlocked: () => isAudioUnlocked(),
+    onRoomCodeChange: (code) => setRoomCode(code),
+    onStatusChange: (status, err) => {
+      setRemoteStatus(status);
+      setRemoteError(err);
+      if (status === 'disconnected') {
+        setRemoteDisplayAudioReady(false);
+      }
+    },
+    onConnectionsChange: (count) => {
+      setRemoteConnectedCount(count);
+      if (count === 0) {
+        setRemoteDisplayAudioReady(false);
+      }
+    },
+    onPeerOpened: (conn) => {
+      peerManager.sendToConnection(conn, {
         type: 'HEARTBEAT',
         senderId: clientIdRef.current,
         role,
         timestamp: Date.now(),
         audioUnlocked: isAudioUnlocked(),
-      })
-    );
+      });
 
-    peerSyncRef.current = peerClient;
+      if (role === 'host') {
+        // Empujar inmediatamente el estado más reciente desde stateRef al conectar o reconectar
+        peerManager.sendToConnection(conn, {
+          type: 'STATE_UPDATE',
+          senderId: clientIdRef.current,
+          role: 'host',
+          state: stateRef.current,
+        });
+        peerManager.sendToConnection(conn, {
+          type: 'MUSIC_REQUEST',
+          senderId: clientIdRef.current,
+        });
+      } else {
+        peerManager.sendToConnection(conn, {
+          type: 'REQUEST_STATE',
+          senderId: clientIdRef.current,
+          role: 'display',
+        });
+        if (musicTracksRef.current.length > 0) {
+          peerManager.sendToConnection(conn, {
+            type: 'MUSIC_CATALOG',
+            senderId: clientIdRef.current,
+            tracks: musicTracksRef.current,
+            control: musicControlRef.current,
+          });
+        }
+      }
+    },
+    onMessage: (msg: SyncMessage) => {
+      switch (msg.type) {
+        case 'STATE_UPDATE':
+          handleIncomingState(msg.state, msg.role);
+          break;
+        case 'REQUEST_STATE':
+          if (role === 'host') {
+            peerManager.send({
+              type: 'STATE_UPDATE',
+              senderId: clientIdRef.current,
+              role: 'host',
+              state: stateRef.current,
+            });
+          }
+          break;
+        case 'SCORE_FLASH':
+          pushFlash(msg.flash);
+          break;
+        case 'SOUND_CUE':
+          if (!stateRef.current.audioMuted && soundEnabledRef.current) {
+            playBroadcastCue(msg.cue);
+          }
+          break;
+        case 'MUSIC_CATALOG':
+          if (role === 'host') {
+            setMusicTracks(msg.tracks);
+            setMusicControl(msg.control);
+            musicControlRef.current = msg.control;
+            setMusicHostedOnDisplay(msg.tracks.length > 0);
+          }
+          break;
+        case 'MUSIC_CONTROL':
+          handleIncomingMusicControl(msg.control);
+          break;
+        case 'MUSIC_REMOVE':
+          handleIncomingMusicRemove(msg.trackId);
+          break;
+        case 'MUSIC_REQUEST':
+          if (role === 'display' && musicTracksRef.current.length > 0) {
+            peerManager.send({
+              type: 'MUSIC_CATALOG',
+              senderId: clientIdRef.current,
+              tracks: musicTracksRef.current,
+              control: musicControlRef.current,
+            });
+          }
+          break;
+        case 'PONG':
+          if (role === 'host' && msg.audioUnlocked !== undefined) {
+            setRemoteDisplayAudioReady(msg.audioUnlocked);
+          }
+          break;
+        case 'HEARTBEAT':
+          if (msg.role === 'display' && msg.audioUnlocked !== undefined) {
+            setRemoteDisplayAudioReady(msg.audioUnlocked);
+          }
+          break;
+      }
+    },
+  };
 
-    if (role === 'display') {
-      peerClient.startDisplayRoom();
-    }
+  // Mantener delegadores estables apuntando siempre a peerHandlersRef.current
+  useEffect(() => {
+    const id = clientIdRef.current;
+    peerManager.attachHandlers(role, {
+      clientId: id,
+      getAudioUnlocked: () => peerHandlersRef.current.getAudioUnlocked(),
+      onRoomCodeChange: (code) => peerHandlersRef.current.onRoomCodeChange?.(code),
+      onStatusChange: (status, err) => peerHandlersRef.current.onStatusChange(status, err),
+      onConnectionsChange: (count) => peerHandlersRef.current.onConnectionsChange(count),
+      onPeerOpened: (conn) => peerHandlersRef.current.onPeerOpened(conn),
+      onMessage: (msg) => peerHandlersRef.current.onMessage(msg),
+    });
 
     return () => {
-      peerClient.destroy();
-      peerSyncRef.current = null;
+      peerManager.detachHandlers(id);
     };
-  }, [
-    role,
-    handleIncomingState,
-    handleIncomingMusicControl,
-    handleIncomingMusicRemove,
-    pushFlash,
-  ]);
+  }, [role]);
+
+  // Efecto de sala: SOLO depende de `role` y `activePeerRoom` (NUNCA de gameState ni callbacks)
+  useEffect(() => {
+    if (role === 'display') {
+      peerManager.ensureDisplayRoom(activePeerRoom || undefined);
+    } else if (role === 'host' && activePeerRoom.length === 4) {
+      peerManager.connectHostToRoom(activePeerRoom);
+    }
+  }, [role, activePeerRoom]);
 
   const connectRemoteRoom = useCallback(
     (code: string) => {
       if (role !== 'host') return;
-      peerSyncRef.current?.connectToRoom(code);
+      const clean = normalizeRoomCode(code);
+      if (clean.length !== 4) {
+        setRemoteStatus('error');
+        setRemoteError('Ingresa un código de 4 letras.');
+        return;
+      }
+      setRoomCode(clean);
+      setActivePeerRoom(clean);
+      // Si el usuario vuelve a presionar "Conectar" con el mismo código tras error, reintentar limpio
+      peerManager.connectHostToRoom(clean);
     },
     [role]
   );
 
   const disconnectRemoteRoom = useCallback(() => {
     if (role !== 'host') return;
-    peerSyncRef.current?.disconnect();
+    setActivePeerRoom('');
+    peerManager.disconnectHost();
   }, [role]);
 
   const regenerateRoomCode = useCallback(() => {
     if (role !== 'display') return;
-    peerSyncRef.current?.regenerateDisplayRoom();
+    peerManager.regenerateDisplayRoom();
   }, [role]);
 
   const {
@@ -729,7 +767,7 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
 
       if (role === 'display') {
         syncRef.current?.broadcastMusicCatalog(nextTracks, nextCtrl);
-        peerSyncRef.current?.send({
+        peerManager.send({
           type: 'MUSIC_CATALOG',
           senderId: clientIdRef.current,
           tracks: nextTracks,
@@ -772,7 +810,7 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
 
       // Enviar siempre comando liviano de control (clave para controlar pistas cargadas en /display desde el celular)
       syncRef.current?.broadcastMusicControl(nextCtrl);
-      peerSyncRef.current?.send({
+      peerManager.send({
         type: 'MUSIC_CONTROL',
         senderId: clientIdRef.current,
         control: nextCtrl,
@@ -824,13 +862,13 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
       }
 
       syncRef.current?.broadcastMusicRemove(trackId);
-      peerSyncRef.current?.send({
+      peerManager.send({
         type: 'MUSIC_REMOVE',
         senderId: clientIdRef.current,
         trackId,
       });
       syncRef.current?.broadcastMusicControl(nextCtrl);
-      peerSyncRef.current?.send({
+      peerManager.send({
         type: 'MUSIC_CONTROL',
         senderId: clientIdRef.current,
         control: nextCtrl,
@@ -857,7 +895,7 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
       applyControlToAudioElement(nextCtrl, shouldPlayLocal);
 
       syncRef.current?.broadcastMusicControl(nextCtrl);
-      peerSyncRef.current?.send({
+      peerManager.send({
         type: 'MUSIC_CONTROL',
         senderId: clientIdRef.current,
         control: nextCtrl,
@@ -897,7 +935,7 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
         };
         stateRef.current = next;
         syncRef.current?.broadcastState(next);
-        peerSyncRef.current?.send({
+        peerManager.send({
           type: 'STATE_UPDATE',
           senderId: clientIdRef.current,
           role,
@@ -915,7 +953,7 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
       playBroadcastCue(cue);
     }
     syncRef.current?.broadcastSoundCue(cue);
-    peerSyncRef.current?.send({
+    peerManager.send({
       type: 'SOUND_CUE',
       senderId: clientIdRef.current,
       cue,
@@ -1059,7 +1097,7 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
       };
       pushFlash(flash);
       syncRef.current?.broadcastScoreFlash(flash);
-      peerSyncRef.current?.send({
+      peerManager.send({
         type: 'SCORE_FLASH',
         senderId: clientIdRef.current,
         flash,

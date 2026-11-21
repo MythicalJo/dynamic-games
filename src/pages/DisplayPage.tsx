@@ -4,9 +4,11 @@ import { StudioBackdrop } from '../components/display/StudioBackdrop';
 import { LobbyScreen } from '../components/display/LobbyScreen';
 import { LeaderboardScreen } from '../components/display/LeaderboardScreen';
 import { getActiveGameModule } from '../modules/registry';
+import { useWakeLock } from '../hooks/useWakeLock';
 
 function DisplayViewport() {
   const { state } = useShow();
+  useWakeLock(true);
   const activeModule = getActiveGameModule(state.activeModuleId);
   const ActiveModuleDisplay = activeModule.DisplayComponent;
 

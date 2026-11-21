@@ -18,6 +18,7 @@ import { QuickScoresRail } from '../components/host/QuickScoresRail';
 import { RemoteConnectBar } from '../components/host/RemoteConnectBar';
 import { SoundboardBar } from '../components/host/SoundboardBar';
 import { useHostShortcuts } from '../hooks/useHostShortcuts';
+import { useWakeLock } from '../hooks/useWakeLock';
 import { getDisplayWindowUrl } from '../lib/i18n';
 import { THEMES, type DisplayMode } from '../types/show';
 
@@ -38,6 +39,7 @@ function HostWorkspace() {
   const [topMode, setTopMode] = useState<TopMode>('live');
   const [setupSection, setSetupSection] = useState<SetupSection>('teams');
   const { shortcutNotice } = useHostShortcuts();
+  useWakeLock(true);
 
   const activeModule = getActiveGameModule(state.activeModuleId);
   const ActiveHostComponent = activeModule.HostComponent;

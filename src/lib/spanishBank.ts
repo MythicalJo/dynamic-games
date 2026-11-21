@@ -195,7 +195,7 @@ export const AUCTION_CATEGORY_BANK: AuctionCategory[] = [
 ];
 
 /**
- * 40 consignas de tipo "¿Quién es más probable...?" (Apuntar) para Sincronía Mental
+ * 80 consignas de tipo "¿Quién es más probable...?" (Apuntar) para Sincronía Mental
  */
 export const MENTAL_SYNC_PROMPT_BANK: MentalSyncPrompt[] = [
   { id: 'ms_01', type: 'who', text: '¿Quién moriría primero en un apocalipsis zombie?' },
@@ -238,6 +238,46 @@ export const MENTAL_SYNC_PROMPT_BANK: MentalSyncPrompt[] = [
   { id: 'ms_38', type: 'who', text: '¿Quién es más competitivo en los juegos de mesa o videojuegos?' },
   { id: 'ms_39', type: 'who', text: '¿Quién tiene más probabilidad de tropezarse en público?' },
   { id: 'ms_40', type: 'who', text: '¿Quién se quedaría sin voz primero en un concierto?' },
+  { id: 'ms_41', type: 'who', text: '¿Quién sobreviviría menos de un día sin celular?' },
+  { id: 'ms_42', type: 'who', text: '¿Quién se comería la última rebanada de pizza sin preguntar?' },
+  { id: 'ms_43', type: 'who', text: '¿Quién lloraría con un video de perritos en redes sociales?' },
+  { id: 'ms_44', type: 'who', text: '¿Quién se reiría si el otro se cae en la calle antes de ayudarlo?' },
+  { id: 'ms_45', type: 'who', text: '¿Quién tiene más fotos vergonzosas guardadas en su galería?' },
+  { id: 'ms_46', type: 'who', text: '¿Quién se quedaría dormido en una fiesta?' },
+  { id: 'ms_47', type: 'who', text: '¿Quién pediría el platillo más caro si alguien más está invitando?' },
+  { id: 'ms_48', type: 'who', text: '¿Quién se quejaría primero del clima (mucho frío o mucho calor)?' },
+  { id: 'ms_49', type: 'who', text: '¿Quién se aprendería primero un trend de baile de TikTok?' },
+  { id: 'ms_50', type: 'who', text: '¿Quién terminaría platicando con el chofer de Uber toda la ruta?' },
+  { id: 'ms_51', type: 'who', text: "¿Quién dejaría en 'visto' al otro durante tres días seguidos?" },
+  { id: 'ms_52', type: 'who', text: '¿Quién compraría algo totalmente inútil solo porque estaba en oferta?' },
+  { id: 'ms_53', type: 'who', text: '¿Quién se asustaría más rápido si alguien lo espanta por la espalda?' },
+  { id: 'ms_54', type: 'who', text: '¿Quién se sabría toda la letra de una canción de telenovela o Disney?' },
+  { id: 'ms_55', type: 'who', text: '¿Quién llegaría al aeropuerto apenas 20 minutos antes del vuelo?' },
+  { id: 'ms_56', type: 'who', text: '¿Quién se pondría a discutir por las reglas de un juego de mesa?' },
+  { id: 'ms_57', type: 'who', text: '¿Quién tiene el cuarto o escritorio más desordenado ahora mismo?' },
+  { id: 'ms_58', type: 'who', text: '¿Quién entraría en pánico primero si se quedan atrapados en un elevador?' },
+  { id: 'ms_59', type: 'who', text: "¿Quién le daría 'like' por accidente a una foto vieja stalkeando a alguien?" },
+  { id: 'ms_60', type: 'who', text: '¿Quién se comería un insecto por una apuesta de 500 pesos?' },
+  { id: 'ms_61', type: 'who', text: '¿Quién olvidaría el nombre de alguien dos segundos después de conocerlo?' },
+  { id: 'ms_62', type: 'who', text: '¿Quién se gastaría todo su dinero en comida antes que en ropa?' },
+  { id: 'ms_63', type: 'who', text: '¿Quién fingiría saber de un tema aunque no tenga ni idea?' },
+  { id: 'ms_64', type: 'who', text: '¿Quién se pondría a cantar en el carro como si estuviera en un concierto?' },
+  { id: 'ms_65', type: 'who', text: '¿Quién sería el peor guardando una sorpresa de cumpleaños?' },
+  { id: 'ms_66', type: 'who', text: '¿Quién se quedaría despierto hasta las 4 AM viendo videos sin sentido?' },
+  { id: 'ms_67', type: 'who', text: '¿Quién le hablaría bonito a cualquier perro o gato que se cruce en la calle?' },
+  { id: 'ms_68', type: 'who', text: "¿Quién sería el primero en decir 'ya vámonos' en una reunión?" },
+  { id: 'ms_69', type: 'who', text: '¿Quién se tropezaría subiendo las escaleras?' },
+  { id: 'ms_70', type: 'who', text: '¿Quién tiene más pestañas abiertas en su navegador ahora mismo?' },
+  { id: 'ms_71', type: 'who', text: '¿Quién se enojaría más si le dan spoiler de su serie favorita?' },
+  { id: 'ms_72', type: 'who', text: '¿Quién pediría ayuda primero si se poncha una llanta?' },
+  { id: 'ms_73', type: 'who', text: '¿Quién se cambiaría de look radicalmente por un impulso de madrugada?' },
+  { id: 'ms_74', type: 'who', text: '¿Quién sobreviviría mejor en un reality show tipo Survivor?' },
+  { id: 'ms_75', type: 'who', text: '¿Quién se pondría más nervioso hablando frente a una cámara?' },
+  { id: 'ms_76', type: 'who', text: '¿Quién se sabe más chistes malos?' },
+  { id: 'ms_77', type: 'who', text: '¿Quién dejaría todo para el último minuto antes de una fecha límite?' },
+  { id: 'ms_78', type: 'who', text: '¿Quién se llevaría mejor con los papás del otro?' },
+  { id: 'ms_79', type: 'who', text: '¿Quién tiene más probabilidad de hacerse amigo de un famoso?' },
+  { id: 'ms_80', type: 'who', text: '¿Quién ganaría si los dos compitieran en Mario Kart ahora mismo?' },
 ];
 
 /**
@@ -334,4 +374,50 @@ export function pickRandomFastMoneyQuestions(
   const nextRecent = resetPool ? pickedTexts : [...recentlyUsed, ...pickedTexts];
 
   return { selected: picked, nextRecent };
+}
+
+/**
+ * Selecciona `count` (por defecto 12) preguntas al azar para Sincronía Mental
+ * evitando repetir preguntas usadas recientemente en el banco integrado.
+ */
+export function pickRandomMentalSyncPrompts(
+  recentlyUsed: string[],
+  count = 12
+): { selected: MentalSyncPrompt[]; nextRecent: string[] } {
+  const shuffle = <T,>(items: T[]): T[] => {
+    const arr = [...items];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  };
+
+  const recentSet = new Set(recentlyUsed);
+  const unused = shuffle(MENTAL_SYNC_PROMPT_BANK.filter((item) => !recentSet.has(item.text)));
+
+  let picked: MentalSyncPrompt[];
+  let resetPool = false;
+
+  if (unused.length >= count) {
+    picked = unused.slice(0, count);
+  } else {
+    // Usar todas las que faltaban sin repetir y completar el resto reiniciando el banco
+    picked = [...unused];
+    const pickedTextSet = new Set(picked.map((p) => p.text));
+    const refill = shuffle(
+      MENTAL_SYNC_PROMPT_BANK.filter((item) => !pickedTextSet.has(item.text))
+    );
+    for (const item of refill) {
+      if (picked.length >= count) break;
+      picked.push(item);
+    }
+    resetPool = true;
+  }
+
+  const selected = picked.map((item) => ({ ...item }));
+  const pickedTexts = selected.map((item) => item.text);
+  const nextRecent = resetPool ? pickedTexts : [...recentlyUsed, ...pickedTexts];
+
+  return { selected, nextRecent };
 }

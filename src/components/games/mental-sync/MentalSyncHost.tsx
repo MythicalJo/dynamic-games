@@ -10,16 +10,18 @@ import {
   Play,
   Plus,
   RotateCcw,
+  Shuffle,
   Trash2,
   X,
 } from 'lucide-react';
 import { useShow } from '../../../context/ShowContext';
+import { MENTAL_SYNC_PROMPT_BANK } from '../../../lib/spanishBank';
 import { formatBroadcastTimer } from '../../../lib/timer';
 import type { GameHostProps } from '../../../modules/registry';
-import {
-  MENTAL_SYNC_MATCH_POINTS,
-} from '../../../types/mentalSync';
+import { MENTAL_SYNC_MATCH_POINTS } from '../../../types/mentalSync';
 import { useMentalSync } from './useMentalSync';
+
+const TIMER_PRESETS = [10, 15, 20, 30];
 
 export function MentalSyncHost({ mode }: GameHostProps) {
   const { state, t } = useShow();
@@ -27,14 +29,17 @@ export function MentalSyncHost({ mode }: GameHostProps) {
     syncState,
     activeTeam,
     activePrompt,
+    unusedBankCount,
     remainingMs,
     addPrompt,
     updatePrompt,
     deletePrompt,
     loadSamplePrompts,
+    loadRandomTwelvePrompts,
     selectPrompt,
     setActiveTeam,
     setTimerEnabled,
+    setTimerDuration,
     startTimer,
     pauseTimer,
     resetTimer,
@@ -63,30 +68,47 @@ export function MentalSyncHost({ mode }: GameHostProps) {
   };
 
   /* ===================================================================== */
-  /* SETUP MODE: Prompts Bank                                              */
+  /* SETUP MODE: Mazo de 12 Preguntas + "Cargar 12 al azar"                */
   /* ===================================================================== */
   if (mode === 'setup') {
     return (
-      <section className="rounded-2xl border border-line bg-surface p-6">
+      <section className="w-full max-w-full rounded-2xl border border-line bg-surface p-4 sm:p-6">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-bold tracking-tight text-ink">{t.mentalSync.setupTitle}</h2>
-            <p className="mt-0.5 text-xs text-ink-muted">{t.mentalSync.setupDesc}</p>
+          <div className="min-w-0">
+            <h2 className="text-lg font-bold tracking-tight text-ink">
+              {t.mentalSync.setupTitle} ({syncState.prompts.length})
+            </h2>
+            <p className="mt-0.5 text-xs text-ink-muted">
+              {t.mentalSync.setupDesc} ({MENTAL_SYNC_PROMPT_BANK.length} en banco ·{' '}
+              {unusedBankCount} sin usar)
+            </p>
           </div>
-          <button
-            type="button"
-            onClick={loadSamplePrompts}
-            className="rounded-xl border border-line bg-canvas px-3.5 py-2 text-xs font-semibold text-ink hover:bg-surface-2"
-          >
-            {t.mentalSync.resetSamples}
-          </button>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={loadRandomTwelvePrompts}
+              className="inline-flex min-h-[40px] items-center gap-1.5 rounded-xl bg-accent px-3.5 py-2 text-xs font-bold text-accent-fg transition hover:opacity-90 active:scale-95 sm:min-h-0"
+            >
+              <Shuffle className="h-3.5 w-3.5" />
+              <span>Cargar 12 al azar</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={loadSamplePrompts}
+              className="min-h-[40px] rounded-xl border border-line bg-canvas px-3.5 py-2 text-xs font-semibold text-ink hover:bg-surface-2 sm:min-h-0"
+            >
+              {t.mentalSync.resetSamples}
+            </button>
+          </div>
         </div>
 
         <form
           onSubmit={handleAddPrompt}
-          className="mb-5 grid grid-cols-1 gap-3 rounded-xl border border-line bg-canvas p-4 md:grid-cols-12"
+          className="mb-5 grid w-full max-w-full grid-cols-1 gap-3 rounded-xl border border-line bg-canvas p-4 md:grid-cols-12"
         >
-          <div className="md:col-span-10">
+          <div className="min-w-0 md:col-span-10">
             <label className="mb-1 block text-xs font-semibold text-ink-muted">
               {t.mentalSync.promptText}
             </label>
@@ -96,13 +118,13 @@ export function MentalSyncHost({ mode }: GameHostProps) {
               value={newText}
               onChange={(e) => setNewText(e.target.value)}
               placeholder={t.mentalSync.promptPlaceholder}
-              className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+              className="w-full max-w-full rounded-lg border border-line bg-surface px-3 py-2 text-base text-ink outline-none focus:border-accent sm:text-sm"
             />
           </div>
           <div className="flex items-end md:col-span-2">
             <button
               type="submit"
-              className="inline-flex w-full items-center justify-center gap-1 rounded-lg bg-accent px-4 py-2 text-xs font-bold text-accent-fg"
+              className="inline-flex min-h-[42px] w-full items-center justify-center gap-1 rounded-lg bg-accent px-4 py-2 text-xs font-bold text-accent-fg sm:min-h-[38px]"
             >
               <Plus className="h-4 w-4" />
               {t.common.add}
@@ -122,7 +144,7 @@ export function MentalSyncHost({ mode }: GameHostProps) {
                     type="text"
                     value={editText}
                     onChange={(e) => setEditText(e.target.value)}
-                    className="flex-1 rounded-lg border border-line bg-canvas px-3 py-1.5 text-sm text-ink outline-none focus:border-accent"
+                    className="w-full min-w-0 flex-1 rounded-lg border border-line bg-canvas px-3 py-1.5 text-base text-ink outline-none focus:border-accent sm:text-sm"
                   />
                   <div className="flex items-center gap-1.5">
                     <button
@@ -150,13 +172,13 @@ export function MentalSyncHost({ mode }: GameHostProps) {
             return (
               <div key={p.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="font-mono text-xs text-ink-subtle">#{idx + 1}</span>
                     <span className="rounded bg-surface-2 px-2 py-0.5 font-mono text-[10px] font-bold text-ink-muted uppercase">
                       {t.mentalSync.whoTag}
                     </span>
                   </div>
-                  <p className="mt-1 text-sm font-medium text-ink">{p.text}</p>
+                  <p className="mt-1 break-words text-sm font-medium text-ink">{p.text}</p>
                 </div>
 
                 <div className="flex items-center gap-1.5">
@@ -198,7 +220,7 @@ export function MentalSyncHost({ mode }: GameHostProps) {
   }
 
   /* ===================================================================== */
-  /* LIVE MODE: Pair + Prompt + Optional 15s Timer + Match/Mismatch        */
+  /* LIVE MODE: Pair + 1–12 Deck + Editable Timer + Match/Mismatch         */
   /* ===================================================================== */
   const resolvePromptText = (text: string) =>
     text.replace(/\[Nombre\]/gi, activeTeam?.playerA || 'tu pareja');
@@ -206,16 +228,16 @@ export function MentalSyncHost({ mode }: GameHostProps) {
   const isUrgent = remainingMs > 0 && remainingSec <= 5;
 
   return (
-    <div className="space-y-5">
-      <section className="grid grid-cols-1 gap-4 md:grid-cols-12">
-        {/* Pair & Active Prompt */}
-        <div className="space-y-4 rounded-2xl border border-line bg-surface p-5 md:col-span-7">
-          <div className="flex items-center justify-between gap-2">
+    <div className="w-full max-w-full space-y-5">
+      <section className="grid w-full max-w-full grid-cols-1 gap-4 md:grid-cols-12">
+        {/* Pair & Active 1–12 Deck */}
+        <div className="w-full max-w-full min-w-0 space-y-4 rounded-2xl border border-line bg-surface p-4 sm:p-5 md:col-span-7">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-lg font-extrabold tracking-tight text-ink">{t.mentalSync.title}</h2>
             <select
               value={activeTeam?.id ?? ''}
               onChange={(e) => setActiveTeam(e.target.value)}
-              className="rounded-xl border border-line bg-canvas px-3 py-1.5 text-xs font-bold text-ink outline-none focus:border-accent"
+              className="w-full max-w-full rounded-xl border border-line bg-canvas px-3 py-2 text-xs font-bold text-ink outline-none focus:border-accent sm:w-auto sm:py-1.5"
             >
               {state.teams.length === 0 && (
                 <option value="">{t.common.noTeamsRegistered}</option>
@@ -228,62 +250,100 @@ export function MentalSyncHost({ mode }: GameHostProps) {
             </select>
           </div>
 
-          <div>
-            <div className="mb-1.5 flex items-center justify-between">
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="font-mono text-[11px] font-bold text-ink-muted uppercase">
                 {t.mentalSync.activePrompt(
                   currentIdx >= 0 ? currentIdx + 1 : 0,
                   syncState.prompts.length
                 )}
               </span>
-              <div className="flex items-center gap-1">
+
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={loadRandomTwelvePrompts}
+                  className="inline-flex min-h-[34px] items-center gap-1.5 rounded-lg bg-accent px-2.5 py-1 text-xs font-bold text-accent-fg transition hover:opacity-90 active:scale-95"
+                  title={`Quedan ${unusedBankCount} preguntas sin usar en el banco`}
+                >
+                  <Shuffle className="h-3.5 w-3.5" />
+                  <span>Cargar 12 al azar</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => stepPrompt(-1)}
-                  className="rounded-lg border border-line bg-canvas p-1 text-ink-muted hover:text-ink"
+                  className="flex h-[34px] w-[34px] items-center justify-center rounded-lg border border-line bg-canvas text-ink-muted hover:text-ink"
+                  aria-label="Pregunta anterior"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
                 <button
                   type="button"
                   onClick={() => stepPrompt(1)}
-                  className="rounded-lg border border-line bg-canvas p-1 text-ink-muted hover:text-ink"
+                  className="flex h-[34px] w-[34px] items-center justify-center rounded-lg border border-line bg-canvas text-ink-muted hover:text-ink"
+                  aria-label="Siguiente pregunta"
                 >
                   <ChevronRight className="h-4 w-4" />
                 </button>
               </div>
             </div>
 
-            <select
-              value={syncState.selectedPromptId ?? ''}
-              onChange={(e) => selectPrompt(e.target.value)}
-              className="w-full rounded-xl border border-line bg-canvas px-3 py-2 text-xs font-semibold text-ink outline-none focus:border-accent"
-            >
-              {syncState.prompts.map((p, idx) => (
-                <option key={p.id} value={p.id}>
-                  #{idx + 1} · {resolvePromptText(p.text)}
-                </option>
-              ))}
-            </select>
-
+            {/* Active Prompt Card */}
             {activePrompt && (
-              <div className="mt-3 rounded-xl border border-line bg-canvas p-4">
+              <div className="w-full max-w-full rounded-xl border border-line bg-canvas p-4">
                 <span className="font-mono text-[10px] font-bold tracking-wider text-accent uppercase">
-                  {t.mentalSync.whoTag}
+                  #{currentIdx + 1} · {t.mentalSync.whoTag}
                 </span>
-                <p className="mt-1 text-base font-bold text-ink">
+                <p className="mt-1 break-words text-base font-bold text-ink">
                   {resolvePromptText(activePrompt.text)}
                 </p>
               </div>
             )}
+
+            {/* Selectable 1–12 Deck List */}
+            <div className="space-y-1.5">
+              <div className="font-mono text-[10px] font-bold tracking-wider text-ink-subtle uppercase">
+                Mazo activo ({syncState.prompts.length} preguntas — toca para proyectar)
+              </div>
+              <div className="max-h-48 divide-y divide-line overflow-y-auto rounded-xl border border-line bg-canvas">
+                {syncState.prompts.map((p, idx) => {
+                  const isSelected = p.id === syncState.selectedPromptId;
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => selectPrompt(p.id)}
+                      className={`flex w-full items-start gap-2.5 px-3 py-2.5 text-left text-xs transition ${
+                        isSelected
+                          ? 'bg-accent-soft font-bold text-ink'
+                          : 'text-ink-muted hover:bg-surface hover:text-ink'
+                      }`}
+                    >
+                      <span
+                        className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded font-mono text-[10px] font-bold ${
+                          isSelected
+                            ? 'bg-accent text-accent-fg'
+                            : 'border border-line bg-surface text-ink-subtle'
+                        }`}
+                      >
+                        {idx + 1}
+                      </span>
+                      <span className="min-w-0 flex-1 break-words leading-snug">
+                        {resolvePromptText(p.text)}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Optional 15s Timer */}
-        <div className="flex flex-col justify-between rounded-2xl border border-line bg-surface p-5 md:col-span-5">
-          <div className="flex items-center justify-between gap-2">
+        {/* Editable Timer Card */}
+        <div className="flex w-full max-w-full min-w-0 flex-col justify-between gap-3 rounded-2xl border border-line bg-surface p-4 sm:p-5 md:col-span-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="font-mono text-[11px] font-bold tracking-wider text-ink-muted uppercase">
-              {t.mentalSync.optionalTimer}
+              Reloj ({syncState.timerSeconds}s)
             </span>
             <label className="flex cursor-pointer items-center gap-1.5 text-xs font-medium text-ink-muted">
               <input
@@ -296,8 +356,47 @@ export function MentalSyncHost({ mode }: GameHostProps) {
             </label>
           </div>
 
+          {/* Quick Duration Presets + Custom Seconds Input */}
+          <div className="flex flex-wrap items-center justify-between gap-1.5">
+            <div className="flex flex-wrap items-center gap-1">
+              {TIMER_PRESETS.map((sec) => (
+                <button
+                  key={sec}
+                  type="button"
+                  onClick={() => setTimerDuration(sec)}
+                  className={`min-h-[32px] rounded-lg border px-2.5 py-1 font-mono text-xs font-bold transition ${
+                    syncState.timerSeconds === sec
+                      ? 'border-ink bg-ink text-canvas'
+                      : 'border-line bg-canvas text-ink-muted hover:text-ink'
+                  }`}
+                >
+                  {sec}s
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-1 rounded-lg border border-line bg-canvas px-2 py-1">
+              <input
+                type="number"
+                inputMode="numeric"
+                min={3}
+                max={300}
+                value={syncState.timerSeconds}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  if (Number.isFinite(val) && val >= 3) {
+                    setTimerDuration(val);
+                  }
+                }}
+                aria-label="Segundos personalizados"
+                className="w-12 bg-transparent text-center font-mono text-sm font-bold text-ink outline-none sm:text-xs"
+              />
+              <span className="font-mono text-[10px] font-semibold text-ink-subtle">seg</span>
+            </div>
+          </div>
+
           <div
-            className={`my-3 text-center font-mono text-6xl font-extrabold tabular-nums leading-none ${
+            className={`my-1 text-center font-mono text-6xl font-extrabold tabular-nums leading-none ${
               !syncState.timerEnabled
                 ? 'text-ink-subtle opacity-40'
                 : remainingMs === 0 || isUrgent
@@ -326,13 +425,14 @@ export function MentalSyncHost({ mode }: GameHostProps) {
                 className="inline-flex min-h-[52px] flex-1 items-center justify-center gap-2 rounded-xl bg-accent py-3 text-base font-extrabold text-accent-fg active:scale-[0.98] sm:min-h-[44px] sm:text-sm"
               >
                 <Play className="h-5 w-5 fill-current sm:h-4 sm:w-4" />
-                {t.mentalSync.start15s}
+                Iniciar {syncState.timerSeconds}s
               </button>
             )}
             <button
               type="button"
               onClick={resetTimer}
               className="min-h-[52px] rounded-xl border border-line bg-canvas px-3.5 py-2.5 text-ink-muted hover:text-ink active:scale-95 sm:min-h-[44px]"
+              aria-label="Reiniciar reloj"
             >
               <RotateCcw className="h-4 w-4" />
             </button>
@@ -341,7 +441,7 @@ export function MentalSyncHost({ mode }: GameHostProps) {
       </section>
 
       {/* Optional Whiteboard Inputs */}
-      <section className="rounded-2xl border border-line bg-surface p-5">
+      <section className="w-full max-w-full rounded-2xl border border-line bg-surface p-4 sm:p-5">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <span className="text-xs font-bold text-ink">{t.mentalSync.whiteboardsTitle}</span>
           <button
@@ -351,7 +451,7 @@ export function MentalSyncHost({ mode }: GameHostProps) {
                 showWhiteboardsOnDisplay: !syncState.showWhiteboardsOnDisplay,
               })
             }
-            className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-bold transition ${
+            className={`inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-bold transition ${
               syncState.showWhiteboardsOnDisplay
                 ? 'border-ink bg-ink text-canvas'
                 : 'border-line bg-canvas text-ink hover:border-line-strong'
@@ -368,27 +468,27 @@ export function MentalSyncHost({ mode }: GameHostProps) {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="grid w-full max-w-full grid-cols-1 gap-3 sm:grid-cols-2">
           <input
             type="text"
             value={syncState.playerAAnswer}
             onChange={(e) => setWhiteboardAnswers({ playerAAnswer: e.target.value })}
             placeholder={t.mentalSync.playerWhiteboard(activeTeam?.playerA || 'A')}
-            className="w-full rounded-xl border border-line bg-canvas px-3.5 py-2.5 text-sm font-semibold text-ink outline-none focus:border-accent"
+            className="w-full max-w-full rounded-xl border border-line bg-canvas px-3.5 py-2.5 text-base font-semibold text-ink outline-none focus:border-accent sm:text-sm"
           />
           <input
             type="text"
             value={syncState.playerBAnswer}
             onChange={(e) => setWhiteboardAnswers({ playerBAnswer: e.target.value })}
             placeholder={t.mentalSync.playerWhiteboard(activeTeam?.playerB || 'B')}
-            className="w-full rounded-xl border border-line bg-canvas px-3.5 py-2.5 text-sm font-semibold text-ink outline-none focus:border-accent"
+            className="w-full max-w-full rounded-xl border border-line bg-canvas px-3.5 py-2.5 text-base font-semibold text-ink outline-none focus:border-accent sm:text-sm"
           />
         </div>
       </section>
 
       {/* Big Result Triggers */}
-      <section className="rounded-2xl border border-line bg-surface p-5">
-        <div className="mb-3 flex items-center justify-between">
+      <section className="w-full max-w-full rounded-2xl border border-line bg-surface p-4 sm:p-5">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <span className="font-mono text-[11px] font-bold tracking-wider text-ink-muted uppercase">
             {t.mentalSync.triggerHeading}
           </span>
@@ -403,31 +503,31 @@ export function MentalSyncHost({ mode }: GameHostProps) {
           )}
         </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="grid w-full max-w-full grid-cols-1 gap-3 sm:grid-cols-2">
           <button
             type="button"
             disabled={!activeTeam}
             onClick={() => triggerResult('match')}
-            className={`flex items-center justify-center gap-2 rounded-2xl border-2 py-4 text-xl font-extrabold uppercase transition active:scale-[0.98] disabled:opacity-40 ${
+            className={`flex min-h-[60px] w-full items-center justify-center gap-2 rounded-2xl border-2 px-4 py-4 text-lg font-extrabold uppercase transition active:scale-[0.98] disabled:opacity-40 sm:text-xl ${
               syncState.result === 'match'
                 ? 'border-ok bg-ok text-ok-fg'
                 : 'border-ok/45 bg-ok-soft text-ok hover:bg-ok hover:text-ok-fg'
             }`}
           >
-            <Check className="h-6 w-6 stroke-[2.5]" />
+            <Check className="h-6 w-6 shrink-0 stroke-[2.5]" />
             <span>{t.mentalSync.matchBtn(MENTAL_SYNC_MATCH_POINTS)}</span>
           </button>
 
           <button
             type="button"
             onClick={() => triggerResult('mismatch')}
-            className={`flex items-center justify-center gap-2 rounded-2xl border-2 py-4 text-xl font-extrabold uppercase transition active:scale-[0.98] ${
+            className={`flex min-h-[60px] w-full items-center justify-center gap-2 rounded-2xl border-2 px-4 py-4 text-lg font-extrabold uppercase transition active:scale-[0.98] sm:text-xl ${
               syncState.result === 'mismatch'
                 ? 'border-err bg-err text-err-fg'
                 : 'border-err/45 bg-err-soft text-err hover:bg-err hover:text-err-fg'
             }`}
           >
-            <X className="h-6 w-6 stroke-[2.5]" />
+            <X className="h-6 w-6 shrink-0 stroke-[2.5]" />
             <span>{t.mentalSync.mismatchBtn}</span>
           </button>
         </div>

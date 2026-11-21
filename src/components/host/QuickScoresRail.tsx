@@ -26,7 +26,7 @@ export function QuickScoresRail({ onOpenTeams }: QuickScoresRailProps) {
   };
 
   return (
-    <aside className="rounded-2xl border border-line bg-surface p-5">
+    <aside className="w-full max-w-full overflow-hidden rounded-2xl border border-line bg-surface p-4 sm:p-5">
       <div className="mb-4 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Trophy className="h-4 w-4 text-accent" />

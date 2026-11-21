@@ -15,7 +15,6 @@ import {
   normalizeConfidenceAuctionState,
 } from '../types/confidenceAuction';
 import {
-  MENTAL_SYNC_DEFAULT_SECONDS,
   MENTAL_SYNC_MODULE_ID,
   normalizeMentalSyncState,
 } from '../types/mentalSync';
@@ -128,12 +127,13 @@ export function useHostShortcuts() {
             timerEnabled: true,
             timer: {
               ...ms.timer,
-              remainingMs: left <= 0 ? MENTAL_SYNC_DEFAULT_SECONDS * 1000 : left,
+              totalSeconds: ms.timerSeconds,
+              remainingMs: left <= 0 ? ms.timerSeconds * 1000 : left,
               isRunning: true,
               startedAt: Date.now(),
             },
           });
-          flashNotice(t.shortcuts.syncStarted);
+          flashNotice(`Reloj ${ms.timerSeconds}s iniciado (Espacio)`);
         }
         return;
       }
@@ -195,9 +195,9 @@ export function useHostShortcuts() {
         const ms = normalizeMentalSyncState(state.moduleData[MENTAL_SYNC_MODULE_ID], firstTeamId);
         setModuleData(MENTAL_SYNC_MODULE_ID, {
           ...ms,
-          timer: createTimerState(MENTAL_SYNC_DEFAULT_SECONDS),
+          timer: createTimerState(ms.timerSeconds),
         });
-        flashNotice(t.shortcuts.syncReset);
+        flashNotice(`Reloj reiniciado a ${ms.timerSeconds}s (R)`);
         return;
       }
       case POLYGRAPH_MODULE_ID: {

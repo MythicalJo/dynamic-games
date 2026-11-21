@@ -71,9 +71,9 @@ export function TeamsManagerPanel() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="w-full max-w-full space-y-6">
       {/* Add Friend Pair */}
-      <section className="rounded-2xl border border-line bg-surface p-6">
+      <section className="w-full max-w-full overflow-hidden rounded-2xl border border-line bg-surface p-4 sm:p-6">
         <div className="mb-5">
           <h2 className="text-lg font-bold tracking-tight text-ink">{t.teams.addTitle}</h2>
           <p className="mt-0.5 text-xs text-ink-muted">{t.teams.addDesc}</p>

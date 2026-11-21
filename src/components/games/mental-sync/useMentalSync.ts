@@ -1,17 +1,18 @@
 import { useCallback, useMemo } from 'react';
 import { useShow } from '../../../context/ShowContext';
 import { createId } from '../../../lib/defaults';
+import { MENTAL_SYNC_PROMPT_BANK, pickRandomMentalSyncPrompts } from '../../../lib/spanishBank';
 import {
   computeRemainingMs,
   createTimerState,
   useSyncedTimer,
 } from '../../../lib/timer';
 import {
-  MENTAL_SYNC_DEFAULT_SECONDS,
+  createDefaultMentalSyncDeck,
+  MENTAL_SYNC_DECK_SIZE,
   MENTAL_SYNC_MATCH_POINTS,
   MENTAL_SYNC_MODULE_ID,
   normalizeMentalSyncState,
-  SAMPLE_MENTAL_SYNC_PROMPTS,
   type MentalSyncPrompt,
   type MentalSyncPromptType,
   type MentalSyncResult,
@@ -40,6 +41,11 @@ export function useMentalSync() {
     [syncState.prompts, syncState.selectedPromptId]
   );
 
+  const unusedBankCount = useMemo(() => {
+    const usedSet = new Set(syncState.recentPromptTexts);
+    return MENTAL_SYNC_PROMPT_BANK.filter((item) => !usedSet.has(item.text)).length;
+  }, [syncState.recentPromptTexts]);
+
   const commit = useCallback(
     (updater: (prev: MentalSyncState) => MentalSyncState) => {
       const next = updater(syncState);
@@ -67,7 +73,7 @@ export function useMentalSync() {
     onExpire: handleExpire,
   });
 
-  // --- Prompts Setup CRUD ---
+  // --- Prompts Setup & 12-Question Deck Controls ---
 
   const addPrompt = useCallback(
     (type: MentalSyncPromptType, text: string) => {
@@ -116,18 +122,43 @@ export function useMentalSync() {
   );
 
   const loadSamplePrompts = useCallback(() => {
+    const deck = createDefaultMentalSyncDeck();
     commit((prev) => ({
       ...prev,
-      prompts: SAMPLE_MENTAL_SYNC_PROMPTS.map((p) => ({ ...p })),
-      selectedPromptId: SAMPLE_MENTAL_SYNC_PROMPTS[0].id,
+      prompts: deck,
+      selectedPromptId: deck[0]?.id ?? null,
+      recentPromptTexts: deck.map((p) => p.text),
       playerAAnswer: '',
       playerBAnswer: '',
       showWhiteboardsOnDisplay: false,
       result: 'pending',
       awardedPoints: 0,
-      timer: createTimerState(MENTAL_SYNC_DEFAULT_SECONDS),
+      timer: createTimerState(prev.timerSeconds),
     }));
   }, [commit]);
+
+  /** Carga 12 preguntas al azar sin repetir del banco integrado */
+  const loadRandomTwelvePrompts = useCallback(() => {
+    commit((prev) => {
+      const { selected, nextRecent } = pickRandomMentalSyncPrompts(
+        prev.recentPromptTexts,
+        MENTAL_SYNC_DECK_SIZE
+      );
+      return {
+        ...prev,
+        prompts: selected,
+        selectedPromptId: selected[0]?.id ?? null,
+        recentPromptTexts: nextRecent,
+        playerAAnswer: '',
+        playerBAnswer: '',
+        showWhiteboardsOnDisplay: false,
+        result: 'pending',
+        awardedPoints: 0,
+        timer: createTimerState(prev.timerSeconds),
+      };
+    });
+    triggerCue('switch');
+  }, [commit, triggerCue]);
 
   // --- Live Round Controls ---
 
@@ -141,7 +172,7 @@ export function useMentalSync() {
         showWhiteboardsOnDisplay: false,
         result: 'pending',
         awardedPoints: 0,
-        timer: createTimerState(MENTAL_SYNC_DEFAULT_SECONDS),
+        timer: createTimerState(prev.timerSeconds),
       }));
       triggerCue('switch');
     },
@@ -158,7 +189,7 @@ export function useMentalSync() {
         showWhiteboardsOnDisplay: false,
         result: 'pending',
         awardedPoints: 0,
-        timer: createTimerState(MENTAL_SYNC_DEFAULT_SECONDS),
+        timer: createTimerState(prev.timerSeconds),
       }));
     },
     [commit]
@@ -169,7 +200,19 @@ export function useMentalSync() {
       commit((prev) => ({
         ...prev,
         timerEnabled: enabled,
-        timer: !enabled ? createTimerState(MENTAL_SYNC_DEFAULT_SECONDS) : prev.timer,
+        timer: !enabled ? createTimerState(prev.timerSeconds) : prev.timer,
+      }));
+    },
+    [commit]
+  );
+
+  const setTimerDuration = useCallback(
+    (seconds: number) => {
+      const clamped = Math.max(3, Math.min(300, Math.round(seconds) || 15));
+      commit((prev) => ({
+        ...prev,
+        timerSeconds: clamped,
+        timer: createTimerState(clamped),
       }));
     },
     [commit]
@@ -178,12 +221,13 @@ export function useMentalSync() {
   const startTimer = useCallback(() => {
     commit((prev) => {
       const left = computeRemainingMs(prev.timer);
-      const nextMs = left <= 0 ? MENTAL_SYNC_DEFAULT_SECONDS * 1000 : left;
+      const nextMs = left <= 0 ? prev.timerSeconds * 1000 : left;
       return {
         ...prev,
         timerEnabled: true,
         timer: {
           ...prev.timer,
+          totalSeconds: prev.timerSeconds,
           remainingMs: nextMs,
           isRunning: true,
           startedAt: Date.now(),
@@ -207,7 +251,7 @@ export function useMentalSync() {
   const resetTimer = useCallback(() => {
     commit((prev) => ({
       ...prev,
-      timer: createTimerState(MENTAL_SYNC_DEFAULT_SECONDS),
+      timer: createTimerState(prev.timerSeconds),
     }));
   }, [commit]);
 
@@ -259,14 +303,17 @@ export function useMentalSync() {
     syncState,
     activeTeam,
     activePrompt,
+    unusedBankCount,
     remainingMs,
     addPrompt,
     updatePrompt,
     deletePrompt,
     loadSamplePrompts,
+    loadRandomTwelvePrompts,
     selectPrompt,
     setActiveTeam,
     setTimerEnabled,
+    setTimerDuration,
     startTimer,
     pauseTimer,
     resetTimer,

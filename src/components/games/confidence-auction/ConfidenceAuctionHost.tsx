@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   Check,
+  ChevronLeft,
   ChevronRight,
   Minus,
   Pause,
@@ -8,6 +9,7 @@ import {
   Play,
   Plus,
   RotateCcw,
+  Shuffle,
   Trash2,
   X,
 } from 'lucide-react';
@@ -22,12 +24,14 @@ export function ConfidenceAuctionHost({ mode }: GameHostProps) {
     auctionState,
     winningTeam,
     activeCategory,
+    unusedCategoriesCount,
     remainingMs,
     addCategory,
     updateCategory,
     deleteCategory,
     loadSampleCategories,
     selectCategory,
+    selectRandomCategory,
     adjustBid,
     setWinningTeam,
     setRewardPoints,
@@ -55,10 +59,11 @@ export function ConfidenceAuctionHost({ mode }: GameHostProps) {
     setNewHint('');
   };
 
-  const handleNextCategory = () => {
+  const stepCategory = (dir: -1 | 1) => {
     if (auctionState.categories.length === 0) return;
+    const len = auctionState.categories.length;
     const idx = auctionState.categories.findIndex((c) => c.id === auctionState.selectedCategoryId);
-    const next = auctionState.categories[(idx + 1) % auctionState.categories.length];
+    const next = auctionState.categories[((idx >= 0 ? idx : 0) + dir + len) % len];
     if (next) selectCategory(next.id);
   };
 
@@ -224,30 +229,58 @@ export function ConfidenceAuctionHost({ mode }: GameHostProps) {
   const isWarn = remainingMs > 0 && remainingSec <= 10 && !isUrgent;
 
   return (
-    <div className="space-y-5">
+    <div className="w-full max-w-full space-y-5">
       {/* Category + Team + Bid Counter */}
-      <section className="rounded-2xl border border-line bg-surface p-5">
-        <div className="mb-4 flex items-center justify-between gap-2">
+      <section className="w-full max-w-full rounded-2xl border border-line bg-surface p-4 sm:p-5">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-extrabold tracking-tight text-ink">{t.auction.title}</h2>
-          <button
-            type="button"
-            onClick={handleNextCategory}
-            className="inline-flex items-center gap-1 text-xs font-bold text-accent hover:underline"
-          >
-            {t.auction.nextCategory} <ChevronRight className="h-3.5 w-3.5" />
-          </button>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={selectRandomCategory}
+              disabled={auctionState.categories.length === 0}
+              className="inline-flex min-h-[36px] items-center gap-1.5 rounded-xl bg-accent px-3 py-1.5 text-xs font-bold text-accent-fg transition hover:opacity-90 active:scale-95 disabled:opacity-40"
+              title={`Quedan ${unusedCategoriesCount} categorías sin usar`}
+            >
+              <Shuffle className="h-3.5 w-3.5" />
+              <span>Categoría al azar</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => stepCategory(-1)}
+              disabled={auctionState.categories.length === 0}
+              className="flex h-[36px] w-[36px] items-center justify-center rounded-xl border border-line bg-canvas text-ink-muted hover:text-ink disabled:opacity-40"
+              aria-label="Categoría anterior"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => stepCategory(1)}
+              disabled={auctionState.categories.length === 0}
+              className="flex h-[36px] w-[36px] items-center justify-center rounded-xl border border-line bg-canvas text-ink-muted hover:text-ink disabled:opacity-40"
+              aria-label="Siguiente categoría"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
-          <div className="space-y-3 md:col-span-7">
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-ink-muted">
-                {t.auction.activeCategory}
-              </label>
+        <div className="grid w-full max-w-full grid-cols-1 gap-4 md:grid-cols-12">
+          <div className="min-w-0 space-y-3 md:col-span-7">
+            <div className="min-w-0">
+              <div className="mb-1 flex flex-wrap items-center justify-between gap-1">
+                <label className="text-xs font-semibold text-ink-muted">
+                  {t.auction.activeCategory}
+                </label>
+                <span className="font-mono text-[10px] text-ink-subtle">
+                  {unusedCategoriesCount} sin usar / {auctionState.categories.length}
+                </span>
+              </div>
               <select
                 value={auctionState.selectedCategoryId ?? ''}
                 onChange={(e) => selectCategory(e.target.value)}
-                className="w-full rounded-xl border border-line bg-canvas px-3.5 py-2.5 text-sm font-semibold text-ink outline-none focus:border-accent"
+                className="w-full max-w-full rounded-xl border border-line bg-canvas px-3.5 py-2.5 text-sm font-semibold text-ink outline-none focus:border-accent"
               >
                 {auctionState.categories.length === 0 && (
                   <option value="">{t.auction.noCategoriesOption}</option>
@@ -259,21 +292,21 @@ export function ConfidenceAuctionHost({ mode }: GameHostProps) {
                 ))}
               </select>
               {activeCategory?.hint && (
-                <p className="mt-1 text-xs text-ink-muted">
+                <p className="mt-1 break-words text-xs text-ink-muted">
                   {t.auction.hostHint} {activeCategory.hint}
                 </p>
               )}
             </div>
 
-            <div className="grid grid-cols-12 gap-2.5">
-              <div className="col-span-8">
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-12">
+              <div className="min-w-0 sm:col-span-8">
                 <label className="mb-1 block text-xs font-semibold text-ink-muted">
                   {t.auction.assignWinningTeam}
                 </label>
                 <select
                   value={winningTeam?.id ?? ''}
                   onChange={(e) => setWinningTeam(e.target.value)}
-                  className="w-full rounded-xl border border-line bg-canvas px-3 py-2 text-xs font-bold text-ink outline-none focus:border-accent"
+                  className="w-full max-w-full rounded-xl border border-line bg-canvas px-3 py-2.5 text-xs font-bold text-ink outline-none focus:border-accent sm:py-2"
                 >
                   {state.teams.length === 0 && (
                     <option value="">{t.common.noTeamsRegistered}</option>
@@ -285,7 +318,7 @@ export function ConfidenceAuctionHost({ mode }: GameHostProps) {
                   ))}
                 </select>
               </div>
-              <div className="col-span-4">
+              <div className="min-w-0 sm:col-span-4">
                 <label className="mb-1 block text-xs font-semibold text-ink-muted">
                   {t.auction.winPoints}
                 </label>
@@ -294,14 +327,14 @@ export function ConfidenceAuctionHost({ mode }: GameHostProps) {
                   min={1}
                   value={auctionState.rewardPoints}
                   onChange={(e) => setRewardPoints(Number(e.target.value))}
-                  className="w-full rounded-xl border border-line bg-canvas px-3 py-2 font-mono text-xs font-bold text-ink outline-none focus:border-accent"
+                  className="w-full max-w-full rounded-xl border border-line bg-canvas px-3 py-2.5 font-mono text-sm font-bold text-ink outline-none focus:border-accent sm:py-2 sm:text-xs"
                 />
               </div>
             </div>
           </div>
 
           {/* Live Bid Counter */}
-          <div className="flex flex-col justify-between rounded-xl border border-line bg-canvas p-4 md:col-span-5">
+          <div className="flex w-full max-w-full flex-col justify-between rounded-xl border border-line bg-canvas p-4 md:col-span-5">
             <span className="text-center font-mono text-[11px] font-bold tracking-wider text-ink-muted uppercase">
               {t.auction.highestBidTarget}
             </span>
@@ -310,7 +343,7 @@ export function ConfidenceAuctionHost({ mode }: GameHostProps) {
               <button
                 type="button"
                 onClick={() => adjustBid(-1)}
-                className="flex h-11 w-11 items-center justify-center rounded-xl border border-line bg-surface text-ink hover:border-line-strong active:scale-95"
+                className="flex h-12 w-12 items-center justify-center rounded-xl border border-line bg-surface text-ink hover:border-line-strong active:scale-95"
               >
                 <Minus className="h-5 w-5" />
               </button>
@@ -327,19 +360,19 @@ export function ConfidenceAuctionHost({ mode }: GameHostProps) {
               <button
                 type="button"
                 onClick={() => adjustBid(1)}
-                className="flex h-11 w-11 items-center justify-center rounded-xl border border-line bg-surface text-ink hover:border-line-strong active:scale-95"
+                className="flex h-12 w-12 items-center justify-center rounded-xl border border-line bg-surface text-ink hover:border-line-strong active:scale-95"
               >
                 <Plus className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="flex items-center justify-center gap-1.5">
+            <div className="flex flex-wrap items-center justify-center gap-1.5">
               {[5, 8, 10, 12, 15].map((preset) => (
                 <button
                   key={preset}
                   type="button"
                   onClick={() => adjustBid(preset - auctionState.bidTarget)}
-                  className={`rounded-md border px-2 py-0.5 font-mono text-[11px] font-bold ${
+                  className={`rounded-md border px-2.5 py-1 font-mono text-xs font-bold sm:px-2 sm:py-0.5 sm:text-[11px] ${
                     auctionState.bidTarget === preset
                       ? 'border-ink bg-ink text-canvas'
                       : 'border-line bg-surface text-ink-muted hover:text-ink'
@@ -437,31 +470,31 @@ export function ConfidenceAuctionHost({ mode }: GameHostProps) {
             />
           </div>
 
-          <div className="flex items-stretch gap-2.5">
+          <div className="flex flex-col items-stretch gap-2.5 sm:flex-row">
             <button
               type="button"
               onClick={incrementHit}
-              className={`flex flex-1 items-center justify-center gap-2 rounded-2xl py-5 text-2xl font-extrabold uppercase transition active:scale-[0.98] ${
+              className={`flex min-h-[64px] flex-1 items-center justify-center gap-2 rounded-2xl px-4 py-5 text-xl font-extrabold uppercase transition active:scale-[0.98] sm:text-2xl ${
                 targetReached ? 'bg-ok text-ok-fg' : 'bg-ink text-canvas hover:opacity-90'
               }`}
             >
-              <Plus className="h-7 w-7 stroke-[2.5]" />
+              <Plus className="h-7 w-7 shrink-0 stroke-[2.5]" />
               <span>{t.auction.hitButton}</span>
             </button>
 
-            <div className="flex flex-col gap-1.5">
+            <div className="grid grid-cols-2 gap-1.5 sm:flex sm:flex-col">
               <button
                 type="button"
                 onClick={decrementHit}
                 disabled={auctionState.hits === 0}
-                className="flex-1 rounded-xl border border-line bg-canvas px-3.5 text-xs font-bold text-ink hover:border-line-strong disabled:opacity-40"
+                className="min-h-[42px] flex-1 rounded-xl border border-line bg-canvas px-3.5 text-xs font-bold text-ink hover:border-line-strong disabled:opacity-40 sm:min-h-0"
               >
                 {t.auction.undoHit}
               </button>
               <button
                 type="button"
                 onClick={resetRound}
-                className="flex-1 rounded-xl border border-line bg-canvas px-3.5 text-xs font-semibold text-ink-muted hover:text-err"
+                className="min-h-[42px] flex-1 rounded-xl border border-line bg-canvas px-3.5 text-xs font-semibold text-ink-muted hover:text-err sm:min-h-0"
               >
                 {t.common.reset}
               </button>

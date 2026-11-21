@@ -38,6 +38,11 @@ export function useConfidenceAuction() {
     [auctionState.categories, auctionState.selectedCategoryId]
   );
 
+  const unusedCategoriesCount = useMemo(() => {
+    const usedSet = new Set(auctionState.usedCategoryIds);
+    return auctionState.categories.filter((c) => !usedSet.has(c.id)).length;
+  }, [auctionState.categories, auctionState.usedCategoryIds]);
+
   const commit = useCallback(
     (updater: (prev: ConfidenceAuctionState) => ConfidenceAuctionState) => {
       const next = updater(auctionState);
@@ -118,10 +123,12 @@ export function useConfidenceAuction() {
   );
 
   const loadSampleCategories = useCallback(() => {
+    const firstId = SAMPLE_AUCTION_CATEGORIES[0]?.id ?? null;
     commit((prev) => ({
       ...prev,
       categories: SAMPLE_AUCTION_CATEGORIES.map((c) => ({ ...c })),
-      selectedCategoryId: SAMPLE_AUCTION_CATEGORIES[0].id,
+      selectedCategoryId: firstId,
+      usedCategoryIds: firstId ? [firstId] : [],
       hits: 0,
       outcome: 'pending',
       awardedPoints: 0,
@@ -136,6 +143,9 @@ export function useConfidenceAuction() {
       commit((prev) => ({
         ...prev,
         selectedCategoryId: id,
+        usedCategoryIds: prev.usedCategoryIds.includes(id)
+          ? prev.usedCategoryIds
+          : [...prev.usedCategoryIds, id],
         hits: 0,
         outcome: 'pending',
         awardedPoints: 0,
@@ -145,6 +155,38 @@ export function useConfidenceAuction() {
     },
     [commit, triggerCue]
   );
+
+  /** Elige una categoría al azar evitando repetir las ya jugadas */
+  const selectRandomCategory = useCallback(() => {
+    if (auctionState.categories.length === 0) return;
+    commit((prev) => {
+      const usedSet = new Set(prev.usedCategoryIds);
+      let candidates = prev.categories.filter(
+        (c) => !usedSet.has(c.id) && c.id !== prev.selectedCategoryId
+      );
+      let resetPool = false;
+
+      if (candidates.length === 0) {
+        candidates = prev.categories.filter((c) => c.id !== prev.selectedCategoryId);
+        if (candidates.length === 0) candidates = prev.categories;
+        resetPool = true;
+      }
+
+      const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+      if (!chosen) return prev;
+
+      return {
+        ...prev,
+        selectedCategoryId: chosen.id,
+        usedCategoryIds: resetPool ? [chosen.id] : [...prev.usedCategoryIds, chosen.id],
+        hits: 0,
+        outcome: 'pending',
+        awardedPoints: 0,
+        timer: createTimerState(AUCTION_DEFAULT_SECONDS),
+      };
+    });
+    triggerCue('switch');
+  }, [auctionState.categories.length, commit, triggerCue]);
 
   const adjustBid = useCallback(
     (delta: number) => {
@@ -311,12 +353,14 @@ export function useConfidenceAuction() {
     auctionState,
     winningTeam,
     activeCategory,
+    unusedCategoriesCount,
     remainingMs,
     addCategory,
     updateCategory,
     deleteCategory,
     loadSampleCategories,
     selectCategory,
+    selectRandomCategory,
     adjustBid,
     setBidTarget,
     setWinningTeam,

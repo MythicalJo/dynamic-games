@@ -58,18 +58,27 @@ function HostWorkspace() {
     { mode: 'game', label: t.switcher.activeGame, hotkey: '⇧3', icon: Gamepad2 },
   ];
 
+  const currentScreenName =
+    state.displayMode === 'lobby'
+      ? t.switcher.lobby
+      : state.displayMode === 'leaderboard'
+        ? t.switcher.leaderboard
+        : t.switcher.activeGame;
+
   return (
-    <div className="flex min-h-screen flex-col bg-canvas text-ink">
+    <div className="flex min-h-screen w-full max-w-full flex-col overflow-x-hidden bg-canvas text-ink">
       {/* ================================================================= */}
       {/* SINGLE MINIMALIST TOP HEADER BAR                                  */}
       {/* ================================================================= */}
-      <header className="sticky top-0 z-30 border-b border-line bg-canvas/95 backdrop-blur-md">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2.5 px-3 py-2.5 sm:px-6 sm:py-3">
+      <header className="sticky top-0 z-30 w-full max-w-full border-b border-line bg-canvas/95 backdrop-blur-md">
+        <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-2.5 px-3 py-2.5 sm:px-6 sm:py-3">
           {/* Left: Brand + Audience Screen Launcher */}
-          <div className="flex items-center gap-2.5">
-            <Link to="/" className="flex items-center gap-2 font-bold tracking-tight text-ink">
-              <span className="h-2.5 w-2.5 rounded-full bg-accent" />
-              <span className="text-sm uppercase">{state.eventMeta.title || 'PUNTOS RÁPIDOS'}</span>
+          <div className="flex min-w-0 flex-wrap items-center gap-2.5">
+            <Link to="/" className="flex min-w-0 items-center gap-2 font-bold tracking-tight text-ink">
+              <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-accent" />
+              <span className="truncate text-sm uppercase">
+                {state.eventMeta.title || 'PUNTOS RÁPIDOS'}
+              </span>
             </Link>
 
             <span className="hidden h-4 w-px bg-line sm:inline-block" />
@@ -94,36 +103,36 @@ function HostWorkspace() {
           </div>
 
           {/* Center: Clean 2-Mode Top Tabs — "En Vivo" vs "Preparación / Equipos" */}
-          <nav className="order-3 flex w-full items-center rounded-full border border-line bg-surface p-1 sm:order-2 sm:w-auto">
+          <nav className="order-3 flex w-full max-w-full items-center rounded-full border border-line bg-surface p-1 sm:order-2 sm:w-auto">
             <button
               type="button"
               onClick={() => setTopMode('live')}
-              className={`inline-flex min-h-[38px] flex-1 items-center justify-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-bold transition sm:min-h-0 sm:flex-none ${
+              className={`inline-flex min-h-[38px] flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition sm:min-h-0 sm:flex-none sm:px-4 ${
                 topMode === 'live'
                   ? 'bg-ink text-canvas'
                   : 'text-ink-muted hover:text-ink'
               }`}
             >
-              <Radio className="h-3.5 w-3.5" />
-              <span>En Vivo</span>
+              <Radio className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">En Vivo</span>
             </button>
             <button
               type="button"
               onClick={() => setTopMode('setup')}
-              className={`inline-flex min-h-[38px] flex-1 items-center justify-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-bold transition sm:min-h-0 sm:flex-none ${
+              className={`inline-flex min-h-[38px] flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition sm:min-h-0 sm:flex-none sm:px-4 ${
                 topMode === 'setup'
                   ? 'bg-ink text-canvas'
                   : 'text-ink-muted hover:text-ink'
               }`}
             >
-              <ListChecks className="h-3.5 w-3.5" />
-              <span>Preparación / Equipos</span>
+              <ListChecks className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">Preparación / Equipos</span>
             </button>
           </nav>
 
           {/* Right: 4-Palette Real-Time Theme Switcher (Blanco / Sepia / Negro / Pizarra) */}
           <div
-            className="order-2 flex items-center gap-0.5 rounded-full border border-line bg-surface p-1 sm:order-3"
+            className="order-2 flex max-w-full flex-wrap items-center gap-0.5 rounded-full border border-line bg-surface p-1 sm:order-3"
             title="Tema visual (sincronizado en tiempo real con la pantalla del público)"
           >
             {THEMES.map((item) => {
@@ -133,7 +142,7 @@ function HostWorkspace() {
                   key={item.id}
                   type="button"
                   onClick={() => setTheme(item.id)}
-                  className={`flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-semibold transition sm:py-1 ${
+                  className={`flex items-center gap-1.5 rounded-full px-2 py-1.5 text-xs font-semibold transition sm:px-2.5 sm:py-1 ${
                     active
                       ? 'bg-canvas text-ink shadow-xs ring-1 ring-line-strong'
                       : 'text-ink-muted hover:text-ink'
@@ -154,21 +163,29 @@ function HostWorkspace() {
       {/* ================================================================= */}
       {/* MAIN WORKSPACE                                                    */}
       {/* ================================================================= */}
-      <main className="mx-auto w-full max-w-7xl flex-1 space-y-4 px-3 py-4 sm:space-y-5 sm:px-6 sm:py-6">
+      <main className="mx-auto w-full max-w-7xl flex-1 space-y-4 overflow-x-hidden px-3 py-4 sm:space-y-5 sm:px-6 sm:py-6">
         {/* Compact Cross-Device Remote Display Connector */}
         <RemoteConnectBar />
 
         {topMode === 'live' ? (
-          <div className="space-y-5">
-            {/* STREAMLINED LIVE BAR: Screen Switcher + Game Picker */}
-            <section className="flex flex-col gap-3 rounded-2xl border border-line bg-surface p-3.5 sm:p-4 lg:flex-row lg:items-center lg:justify-between">
-              {/* Active Screen Switcher (3-column thumb grid on mobile) */}
-              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-                <span className="mr-1 inline-flex items-center gap-1.5 font-mono text-[11px] font-bold tracking-wider text-ink-muted uppercase">
-                  <span className="h-2 w-2 rounded-full bg-err" />
-                  Pantalla:
-                </span>
-                <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:items-center">
+          <div className="w-full max-w-full space-y-5">
+            {/* STREAMLINED LIVE BAR: Explicit Display Switcher + Decoupled Game Tabs */}
+            <section className="flex w-full max-w-full flex-col gap-3 rounded-2xl border border-line bg-surface p-3.5 sm:p-4">
+              {/* Row 1: Explicit Audience Screen Switcher (ONLY these buttons change /display mode) */}
+              <div className="flex w-full max-w-full flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 font-mono text-[11px] font-bold tracking-wider text-ink-muted uppercase">
+                    <span className="h-2 w-2 rounded-full bg-err" />
+                    Pantalla del público:
+                  </span>
+                  {state.displayMode !== 'game' && (
+                    <span className="rounded-full border border-line bg-canvas px-2.5 py-0.5 text-[11px] font-medium text-ink-muted">
+                      Proyectando «{currentScreenName}» · puedes preparar juegos abajo sin cambiarla
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-3 lg:w-auto lg:flex lg:flex-wrap lg:items-center">
                   {screenModes.map(({ mode, label, hotkey, icon: Icon }) => {
                     const isActive = state.displayMode === mode;
                     return (
@@ -176,14 +193,14 @@ function HostWorkspace() {
                         key={mode}
                         type="button"
                         onClick={() => setDisplayMode(mode)}
-                        className={`inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border px-2.5 py-2 text-xs font-bold transition active:scale-[0.98] sm:min-h-0 sm:px-3.5 ${
+                        className={`inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold transition active:scale-[0.98] sm:min-h-[40px] lg:w-auto ${
                           isActive
                             ? 'border-accent bg-accent text-accent-fg'
                             : 'border-line bg-canvas text-ink hover:border-line-strong'
                         }`}
                       >
                         <Icon className="h-3.5 w-3.5 shrink-0" />
-                        <span className="truncate">{label}</span>
+                        <span className="text-center leading-tight">{label}</span>
                         <kbd
                           className={`hidden font-mono text-[10px] sm:inline ${
                             isActive ? 'opacity-75' : 'text-ink-subtle'
@@ -197,8 +214,11 @@ function HostWorkspace() {
                 </div>
               </div>
 
-              {/* Quick Active Game Module Switcher (horizontal scroll on mobile) */}
-              <div className="flex items-center gap-1.5 overflow-x-auto border-t border-line pt-3 pb-0.5 sm:flex-wrap sm:overflow-visible sm:pb-0 lg:border-t-0 lg:pt-0">
+              {/* Row 2: Decoupled Host Game Switcher (NEVER forces /display away from Lobby/Leaderboard) */}
+              <div className="flex w-full max-w-full flex-wrap items-center gap-1.5 border-t border-line pt-3">
+                <span className="mr-1 font-mono text-[10px] font-bold tracking-wider text-ink-subtle uppercase">
+                  Panel de juego:
+                </span>
                 {GAME_MODULES.map((mod) => {
                   const isSelected = activeModule.id === mod.id;
                   const copy =
@@ -207,13 +227,8 @@ function HostWorkspace() {
                     <button
                       key={mod.id}
                       type="button"
-                      onClick={() => {
-                        setActiveModuleId(mod.id);
-                        if (state.displayMode !== 'game') {
-                          setDisplayMode('game');
-                        }
-                      }}
-                      className={`min-h-[38px] shrink-0 rounded-lg border px-3 py-1.5 text-xs font-semibold transition sm:min-h-0 sm:px-2.5 ${
+                      onClick={() => setActiveModuleId(mod.id)}
+                      className={`min-h-[38px] rounded-lg border px-3 py-1.5 text-xs font-semibold transition sm:min-h-0 sm:px-2.5 ${
                         isSelected
                           ? 'border-ink bg-ink text-canvas'
                           : 'border-line bg-canvas text-ink-muted hover:border-line-strong hover:text-ink'
@@ -227,12 +242,12 @@ function HostWorkspace() {
             </section>
 
             {/* ESSENTIAL LIVE 2-COLUMN DESK: Current Round Controls + Quick Score Actions */}
-            <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
-              <div className="min-w-0 lg:col-span-8">
+            <div className="grid w-full max-w-full grid-cols-1 items-start gap-5 lg:grid-cols-12">
+              <div className="w-full max-w-full min-w-0 lg:col-span-8">
                 {ActiveHostComponent && <ActiveHostComponent mode="live" />}
               </div>
 
-              <div className="lg:col-span-4">
+              <div className="w-full max-w-full min-w-0 lg:col-span-4">
                 <QuickScoresRail
                   onOpenTeams={() => {
                     setTopMode('setup');
@@ -246,46 +261,46 @@ function HostWorkspace() {
           /* ============================================================= */
           /* PREPARACIÓN / EQUIPOS (SETUP WORKSPACE)                       */
           /* ============================================================= */
-          <div className="space-y-6">
+          <div className="w-full max-w-full space-y-5">
             {/* Clean Setup Sub-Tabs */}
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-4">
+            <div className="flex w-full max-w-full flex-wrap items-center justify-between gap-3 border-b border-line pb-4">
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setSetupSection('teams')}
-                  className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-bold transition ${
+                  className={`inline-flex min-h-[40px] items-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-bold transition sm:min-h-0 sm:px-4 ${
                     setupSection === 'teams'
                       ? 'border-ink bg-ink text-canvas'
                       : 'border-line bg-surface text-ink-muted hover:text-ink'
                   }`}
                 >
-                  <Users className="h-4 w-4" />
+                  <Users className="h-4 w-4 shrink-0" />
                   <span>Equipos y Parejas ({state.teams.length})</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setSetupSection('games')}
-                  className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-bold transition ${
+                  className={`inline-flex min-h-[40px] items-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-bold transition sm:min-h-0 sm:px-4 ${
                     setupSection === 'games'
                       ? 'border-ink bg-ink text-canvas'
                       : 'border-line bg-surface text-ink-muted hover:text-ink'
                   }`}
                 >
-                  <Gamepad2 className="h-4 w-4" />
+                  <Gamepad2 className="h-4 w-4 shrink-0" />
                   <span>Preguntas y Juegos</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setSetupSection('event')}
-                  className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-bold transition ${
+                  className={`inline-flex min-h-[40px] items-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-bold transition sm:min-h-0 sm:px-4 ${
                     setupSection === 'event'
                       ? 'border-ink bg-ink text-canvas'
                       : 'border-line bg-surface text-ink-muted hover:text-ink'
                   }`}
                 >
-                  <Database className="h-4 w-4" />
+                  <Database className="h-4 w-4 shrink-0" />
                   <span>Portada y Respaldo JSON</span>
                 </button>
               </div>
@@ -293,7 +308,7 @@ function HostWorkspace() {
               <button
                 type="button"
                 onClick={() => setTopMode('live')}
-                className="rounded-xl bg-accent px-4 py-2 text-xs font-bold text-accent-fg transition hover:opacity-90"
+                className="min-h-[40px] rounded-xl bg-accent px-4 py-2 text-xs font-bold text-accent-fg transition hover:opacity-90 sm:min-h-0"
               >
                 Ir a En Vivo →
               </button>
@@ -302,7 +317,7 @@ function HostWorkspace() {
             {setupSection === 'teams' && <TeamsManagerPanel />}
 
             {setupSection === 'games' && (
-              <div className="space-y-5">
+              <div className="w-full max-w-full space-y-5">
                 <div className="flex flex-wrap items-center gap-2">
                   {GAME_MODULES.map((mod) => {
                     const isSelected = activeModule.id === mod.id;
@@ -313,7 +328,7 @@ function HostWorkspace() {
                         key={mod.id}
                         type="button"
                         onClick={() => setActiveModuleId(mod.id)}
-                        className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${
+                        className={`min-h-[38px] rounded-xl border px-3.5 py-2 text-xs font-bold transition sm:min-h-0 ${
                           isSelected
                             ? 'border-accent bg-accent text-accent-fg'
                             : 'border-line bg-surface text-ink-muted hover:border-line-strong hover:text-ink'
@@ -334,7 +349,7 @@ function HostWorkspace() {
         )}
       </main>
 
-      {/* SLEEK COMPACT SOUNDBOARD FOOTER */}
+      {/* SLEEK COMPACT SOUNDBOARD FOOTER + MOBILE-FRIENDLY MUSIC MODAL */}
       <SoundboardBar shortcutNotice={shortcutNotice} />
     </div>
   );

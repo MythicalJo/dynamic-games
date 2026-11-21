@@ -350,16 +350,16 @@ export function FastMoneyHost({ mode }: GameHostProps) {
   const currentStageInfo = stages[stage - 1];
 
   return (
-    <div className="space-y-5">
+    <div className="w-full max-w-full space-y-5">
       {/* Header + 4-Phase Step Indicator */}
-      <section className="rounded-2xl border border-line bg-surface p-5">
+      <section className="w-full max-w-full rounded-2xl border border-line bg-surface p-4 sm:p-5">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex w-full max-w-full flex-wrap items-center gap-2.5 sm:w-auto sm:gap-3">
             <h2 className="text-lg font-extrabold tracking-tight text-ink">{t.fastMoney.title}</h2>
             <select
               value={selectedTeam.id}
               onChange={(e) => selectTeam(e.target.value)}
-              className="rounded-xl border border-line bg-canvas px-3 py-1.5 text-xs font-bold text-ink outline-none focus:border-accent"
+              className="w-full max-w-full rounded-xl border border-line bg-canvas px-3 py-2 text-xs font-bold text-ink outline-none focus:border-accent sm:w-auto sm:py-1.5"
             >
               {state.teams.map((teamItem) => (
                 <option key={teamItem.id} value={teamItem.id}>
@@ -548,7 +548,7 @@ export function FastMoneyHost({ mode }: GameHostProps) {
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex w-full max-w-full flex-wrap items-center gap-2 sm:flex-nowrap">
                     <input
                       ref={(el) => {
                         liveInputRefs.current[idx] = el;
@@ -565,7 +565,7 @@ export function FastMoneyHost({ mode }: GameHostProps) {
                         }
                       }}
                       placeholder={t.fastMoney.live.typeGuessPlaceholder(guessingPlayerName)}
-                      className="min-h-[48px] flex-1 rounded-xl border border-line bg-canvas px-3.5 py-2.5 text-base font-semibold text-ink outline-none focus:border-accent sm:min-h-0 sm:text-sm"
+                      className="min-h-[48px] min-w-0 flex-1 rounded-xl border border-line bg-canvas px-3.5 py-2.5 text-base font-semibold text-ink outline-none focus:border-accent sm:min-h-0 sm:text-sm"
                     />
 
                     <button

@@ -55,8 +55,8 @@ export function RemoteConnectBar() {
   };
 
   return (
-    <section className="rounded-2xl border border-line bg-surface px-4 py-3">
-      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+    <section className="w-full max-w-full overflow-hidden rounded-2xl border border-line bg-surface px-3.5 py-3 sm:px-4">
+      <div className="flex w-full max-w-full flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         {/* Left: Title + Live Status Pill */}
         <div className="flex flex-wrap items-center justify-between gap-2 sm:justify-start">
           <div className="flex items-center gap-2">

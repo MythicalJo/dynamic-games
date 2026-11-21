@@ -16,6 +16,8 @@ export type AuctionOutcome = 'pending' | 'won' | 'failed';
 export interface ConfidenceAuctionState {
   categories: AuctionCategory[];
   selectedCategoryId: string | null;
+  /** Historial de categorías ya jugadas para que "Categoría al azar" evite repetir */
+  usedCategoryIds: string[];
   bidTarget: number;
   winningTeamId: string | null;
   hits: number;
@@ -30,9 +32,11 @@ export const SAMPLE_AUCTION_CATEGORIES: AuctionCategory[] = AUCTION_CATEGORY_BAN
 export function createInitialConfidenceAuctionState(
   firstTeamId: string | null
 ): ConfidenceAuctionState {
+  const firstId = AUCTION_CATEGORY_BANK[0]?.id ?? null;
   return {
     categories: AUCTION_CATEGORY_BANK.map((c) => ({ ...c })),
-    selectedCategoryId: AUCTION_CATEGORY_BANK[0]?.id ?? null,
+    selectedCategoryId: firstId,
+    usedCategoryIds: firstId ? [firstId] : [],
     bidTarget: 8,
     winningTeamId: firstTeamId,
     hits: 0,
@@ -66,12 +70,26 @@ export function normalizeConfidenceAuctionState(
       ? obj.selectedCategoryId
       : categories[0]?.id ?? null;
 
+  const validIds = new Set(categories.map((c) => c.id));
+  const usedCategoryIds = Array.isArray(obj.usedCategoryIds)
+    ? Array.from(
+        new Set(
+          obj.usedCategoryIds.filter(
+            (id): id is string => typeof id === 'string' && validIds.has(id)
+          )
+        )
+      )
+    : selectedCategoryId
+      ? [selectedCategoryId]
+      : [];
+
   const outcome: AuctionOutcome =
     obj.outcome === 'won' || obj.outcome === 'failed' ? obj.outcome : 'pending';
 
   return {
     categories,
     selectedCategoryId,
+    usedCategoryIds,
     bidTarget: typeof obj.bidTarget === 'number' && obj.bidTarget >= 1 ? Math.round(obj.bidTarget) : 8,
     winningTeamId:
       typeof obj.winningTeamId === 'string' && obj.winningTeamId.trim()

@@ -561,7 +561,7 @@ export const TRANSLATIONS: Record<Language, Translations> = {
       displayScreen: 'Proyectando:',
       lobby: 'Portada',
       leaderboard: 'Tabla de Posiciones',
-      activeGame: 'Juego Activo',
+      activeGame: 'Mostrar Juego Activo',
     },
     soundboard: {
       muted: 'Silencio',
@@ -573,10 +573,10 @@ export const TRANSLATIONS: Record<Language, Translations> = {
       enableAudioOnDisplayTip: 'Haz clic en «Activar audio y pantalla completa» en la Pantalla del Público',
       pads: {
         tick: 'Tic-Tac',
-        timeUp: 'Tiempo',
+        timeUp: 'Se acabó el tiempo',
         swoosh: 'Volteo',
         ding: 'Acierto',
-        miss: 'Error',
+        miss: 'Respuesta equivocada',
         fanfare: 'Fanfarria',
       },
       shortcuts: {

@@ -85,9 +85,9 @@ export function EventDataPanel() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="w-full max-w-full space-y-6">
       {/* Export / Import Event Data (.json) */}
-      <section className="rounded-2xl border border-line bg-surface p-6">
+      <section className="w-full max-w-full overflow-hidden rounded-2xl border border-line bg-surface p-4 sm:p-6">
         <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-lg font-bold tracking-tight text-ink">

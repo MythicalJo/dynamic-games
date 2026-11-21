@@ -422,10 +422,10 @@ export function PolygraphHost({ mode }: GameHostProps) {
     polyState.lockedGuess === activeStatement.verdict;
 
   return (
-    <div className="space-y-5">
-      <section className="grid grid-cols-1 gap-4 md:grid-cols-12">
+    <div className="w-full max-w-full space-y-5">
+      <section className="grid w-full max-w-full grid-cols-1 gap-4 md:grid-cols-12">
         {/* Statement Selector */}
-        <div className="space-y-3 rounded-2xl border border-line bg-surface p-5 md:col-span-7">
+        <div className="w-full max-w-full min-w-0 space-y-3 rounded-2xl border border-line bg-surface p-4 sm:p-5 md:col-span-7">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-lg font-extrabold tracking-tight text-ink">{t.polygraph.title}</h2>
             <div className="flex items-center gap-3">

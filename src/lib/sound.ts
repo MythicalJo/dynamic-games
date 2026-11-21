@@ -193,46 +193,89 @@ function playNoiseSweep(
 }
 
 /**
- * Plays a punchy, aggressive layered TV game-show horn/buzzer burst.
+ * Plays a short, punchy, aggressive low-pitched "X / Wrong" buzzer (~0.4s, 110Hz–135Hz).
  */
-function playAggressiveBuzzerBurst(
+function playWrongAnswerBuzzer(
   engine: { ctx: AudioContext; out: GainNode },
-  startOffset: number,
-  duration: number,
-  baseHz = 128
+  startOffset = 0,
+  duration = 0.42
 ) {
-  // Layered detuned sawtooth + square waves (110Hz - 140Hz range) with slight pitch drop & overdrive bite
-  playTone(engine, baseHz + 10, startOffset, duration, {
+  // Layered detuned low sawtooth + square waves (110Hz - 135Hz) with sharp attack & overdrive
+  playTone(engine, 134, startOffset, duration, {
     type: 'sawtooth',
-    volume: 0.24,
-    endFreq: baseHz - 8,
+    volume: 0.25,
+    endFreq: 118,
     attack: 0.003,
     lowpassHz: 1450,
     drive: true,
   });
-  playTone(engine, baseHz - 11, startOffset, duration, {
+  playTone(engine, 122, startOffset, duration, {
+    type: 'square',
+    volume: 0.22,
+    endFreq: 110,
+    attack: 0.003,
+    lowpassHz: 1150,
+    drive: true,
+  });
+  playTone(engine, 111, startOffset, duration, {
     type: 'sawtooth',
     volume: 0.24,
-    endFreq: baseHz - 24,
+    endFreq: 98,
     attack: 0.003,
-    lowpassHz: 1350,
+    lowpassHz: 1300,
     drive: true,
   });
-  playTone(engine, baseHz, startOffset, duration, {
-    type: 'square',
-    volume: 0.2,
-    endFreq: baseHz - 14,
-    attack: 0.003,
-    lowpassHz: 1100,
-    drive: true,
-  });
-  // Sub-bass punch
-  playTone(engine, (baseHz - 10) / 2, startOffset, duration, {
+  // Sub-bass body
+  playTone(engine, 58, startOffset, duration, {
     type: 'square',
     volume: 0.14,
-    endFreq: (baseHz - 22) / 2,
+    endFreq: 52,
     attack: 0.004,
-    lowpassHz: 420,
+    lowpassHz: 360,
+  });
+}
+
+/**
+ * Plays a classic TV game-show "Time's Up!" triple-beep alarm followed by a sustained descending horn.
+ */
+function playTimesUpAlarm(engine: { ctx: AudioContext; out: GainNode }) {
+  // 3 rapid high-energy alarm beeps
+  const beepOffsets = [0, 0.13, 0.26];
+  for (const offset of beepOffsets) {
+    playTone(engine, 932.33, offset, 0.095, {
+      type: 'square',
+      volume: 0.19,
+      attack: 0.003,
+      lowpassHz: 2800,
+    });
+    playTone(engine, 1864.66, offset, 0.08, {
+      type: 'triangle',
+      volume: 0.11,
+      attack: 0.003,
+    });
+  }
+
+  // Sustained descending final broadcast horn (0.40s -> 1.05s)
+  playTone(engine, 740, 0.4, 0.65, {
+    type: 'sawtooth',
+    volume: 0.2,
+    endFreq: 554.37,
+    attack: 0.008,
+    lowpassHz: 2400,
+    drive: true,
+  });
+  playTone(engine, 554.37, 0.4, 0.65, {
+    type: 'square',
+    volume: 0.16,
+    endFreq: 415.3,
+    attack: 0.008,
+    lowpassHz: 1900,
+  });
+  playTone(engine, 370, 0.4, 0.65, {
+    type: 'triangle',
+    volume: 0.16,
+    endFreq: 277.18,
+    attack: 0.008,
   });
 }
 
@@ -281,15 +324,14 @@ export function playBroadcastCue(cue: SoundCue): void {
         break;
 
       case 'timeUp':
-        // Long dramatic game-show horn when clock hits 0
-        playAggressiveBuzzerBurst(engine, 0, 0.85, 134);
+        // "Se acabó el tiempo": 3 rapid high-energy alarm beeps + sustained descending TV horn
+        playTimesUpAlarm(engine);
         break;
 
       case 'miss':
       case 'scoreDown':
-        // Aggressive double-hit TV game show wrong buzzer ("BZZZT-BZZZZT!")
-        playAggressiveBuzzerBurst(engine, 0, 0.19, 132);
-        playAggressiveBuzzerBurst(engine, 0.21, 0.42, 120);
+        // "Respuesta Equivocada": short, punchy, aggressive low-pitched X buzzer (~0.42s, 110Hz-135Hz)
+        playWrongAnswerBuzzer(engine, 0, 0.42);
         break;
 
       case 'cardFlip':
@@ -365,7 +407,7 @@ export function playBroadcastCue(cue: SoundCue): void {
 
       case 'stampLie':
         playTone(engine, 120, 0, 0.18, { type: 'triangle', volume: 0.25, endFreq: 48, attack: 0.004 });
-        playAggressiveBuzzerBurst(engine, 0.06, 0.36, 122);
+        playWrongAnswerBuzzer(engine, 0.06, 0.36);
         break;
     }
   } catch {

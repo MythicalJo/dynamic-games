@@ -1,6 +1,20 @@
+import type { SyncedTimerState } from '../lib/timer';
+
 export type TeamAccent = 'cyan' | 'gold' | 'magenta' | 'emerald' | 'coral' | 'violet';
 
-export type DisplayMode = 'lobby' | 'leaderboard' | 'game';
+export type DisplayMode = 'lobby' | 'leaderboard' | 'game' | 'podium' | 'tiebreaker';
+
+export type TiebreakerSource = 'mental-sync' | 'confidence-auction';
+
+export interface TiebreakerState {
+  source: TiebreakerSource;
+  promptText: string;
+  promptHint?: string;
+  timerSeconds: number;
+  timer: SyncedTimerState;
+  winnerTeamId: string | null;
+  usedPrompts: string[];
+}
 
 export type Language = 'es' | 'en';
 
@@ -71,6 +85,12 @@ export interface ShowState {
   theme: ThemeId;
   /** Global mute switch synchronized to /display and /host */
   audioMuted: boolean;
+  /** Cuando tiene un moduleId, /display muestra el overlay de "Reglas Rápidas" de ese juego */
+  rulesOverlayModuleId: string | null;
+  /** Paso de revelación en el Podio Final: 0=oculto, 1=3.º, 2=2.º, 3=1.º + confeti */
+  podiumRevealStep: 0 | 1 | 2 | 3;
+  /** Estado sincronizado de la ronda de Desempate (Muerte Súbita) */
+  tiebreaker: TiebreakerState;
   /** Extensible container for custom game modules */
   moduleData: Record<string, unknown>;
 }

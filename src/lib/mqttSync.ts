@@ -127,7 +127,24 @@ export function adjustRemoteStateTimers(state: ShowState, sentAt?: number): Show
     }
   }
 
-  return mutated ? { ...state, moduleData: nextModuleData } : state;
+  let nextTiebreaker = state.tiebreaker;
+  if (
+    nextTiebreaker?.timer?.isRunning === true &&
+    typeof nextTiebreaker.timer.startedAt === 'number'
+  ) {
+    nextTiebreaker = {
+      ...nextTiebreaker,
+      timer: {
+        ...nextTiebreaker.timer,
+        startedAt: nextTiebreaker.timer.startedAt + offsetMs,
+      },
+    };
+    mutated = true;
+  }
+
+  return mutated
+    ? { ...state, moduleData: nextModuleData, tiebreaker: nextTiebreaker }
+    : state;
 }
 
 export interface RemotePeerPresence {

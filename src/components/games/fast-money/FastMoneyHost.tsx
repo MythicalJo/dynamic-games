@@ -22,7 +22,8 @@ import {
   type FastMoneyCategory,
 } from '../../../lib/spanishBank';
 import type { GameHostProps } from '../../../modules/registry';
-import type { FastMoneyStage } from '../../../types/fastMoney';
+import { FAST_MONEY_MODULE_ID, type FastMoneyStage } from '../../../types/fastMoney';
+import { RulesToggleButton } from '../../host/RulesToggleButton';
 import { TeamSelectorStrip } from '../../host/TeamSelectorStrip';
 import { useFastMoney } from './useFastMoney';
 
@@ -358,9 +359,12 @@ export function FastMoneyHost({ mode }: GameHostProps) {
             <span>{t.fastMoney.title}</span>
           </h2>
 
-          <span className="rounded-full border border-line bg-canvas px-3 py-1 font-mono text-xs font-bold text-ink">
-            Combinado: +{combinedTotal} pts
-          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <RulesToggleButton moduleId={FAST_MONEY_MODULE_ID} />
+            <span className="rounded-full border border-line bg-canvas px-3 py-1 font-mono text-xs font-bold text-ink">
+              Combinado: +{combinedTotal} pts
+            </span>
+          </div>
         </div>
 
         <div className="mb-4">

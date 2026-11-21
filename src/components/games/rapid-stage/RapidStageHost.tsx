@@ -14,6 +14,7 @@ import {
 import { useShow } from '../../../context/ShowContext';
 import type { GameHostProps } from '../../../modules/registry';
 import { TEAM_ACCENTS, type PreparedQuestion } from '../../../types/show';
+import { RulesToggleButton } from '../../host/RulesToggleButton';
 
 export function RapidStageHost({ mode }: GameHostProps) {
   const {
@@ -324,6 +325,7 @@ export function RapidStageHost({ mode }: GameHostProps) {
         </h2>
 
         <div className="flex flex-wrap items-center gap-2">
+          <RulesToggleButton moduleId="rapid-stage" />
           <button
             type="button"
             onClick={() => updateStageState({ promptVisible: !stageState.promptVisible })}

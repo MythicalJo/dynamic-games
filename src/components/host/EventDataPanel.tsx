@@ -4,10 +4,12 @@ import {
   CheckCircle2,
   Download,
   RefreshCw,
+  RotateCcw,
   Trash2,
   Upload,
 } from 'lucide-react';
 import { useShow } from '../../context/ShowContext';
+import { ResetEventModal } from './ResetEventModal';
 
 export function EventDataPanel() {
   const {
@@ -16,6 +18,7 @@ export function EventDataPanel() {
     exportEventJson,
     importEventJson,
     loadDemoData,
+    resetEventProgress,
     resetAllData,
     t,
   } = useShow();
@@ -26,6 +29,7 @@ export function EventDataPanel() {
     text: string;
   } | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [resetModalOpen, setResetModalOpen] = useState(false);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
 
   const handleExport = () => {
@@ -273,6 +277,15 @@ export function EventDataPanel() {
             {t.eventData.loadDemoBtn}
           </button>
 
+          <button
+            type="button"
+            onClick={() => setResetModalOpen(true)}
+            className="inline-flex items-center gap-2 rounded-xl border border-warn/45 bg-warn-soft px-4 py-2 text-xs font-bold text-warn transition hover:border-warn"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            <span>Reiniciar Evento (puntajes a 0)</span>
+          </button>
+
           {confirmClear ? (
             <div className="flex items-center gap-2 rounded-xl border border-err/40 bg-err-soft px-3.5 py-2">
               <span className="text-xs font-semibold text-err">{t.eventData.clearConfirmText}</span>
@@ -310,6 +323,18 @@ export function EventDataPanel() {
           )}
         </div>
       </section>
+
+      <ResetEventModal
+        open={resetModalOpen}
+        onClose={() => setResetModalOpen(false)}
+        onConfirmReset={() => {
+          resetEventProgress();
+          setStatusMessage({
+            type: 'success',
+            text: 'Evento reiniciado: localStorage limpio y todos los puntajes en 0.',
+          });
+        }}
+      />
     </div>
   );
 }

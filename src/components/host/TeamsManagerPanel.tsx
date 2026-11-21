@@ -334,21 +334,35 @@ export function TeamsManagerPanel() {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2 pl-5 sm:pl-0">
-                    <div className="flex items-center rounded-lg border border-line bg-surface p-0.5">
+                    <div className="flex flex-wrap items-center gap-0.5 rounded-xl border border-line bg-surface p-1">
                       <button
                         type="button"
                         onClick={() => adjustTeamScore(team.id, -10)}
-                        className="rounded-md px-2 py-1 font-mono text-xs font-semibold text-err hover:bg-err-soft"
+                        className="min-h-[34px] rounded-lg px-2 py-1 font-mono text-xs font-bold text-err hover:bg-err-soft active:scale-95"
                       >
                         −10
                       </button>
-                      <span className="min-w-[56px] text-center font-mono text-sm font-bold text-ink tabular-nums">
+                      <button
+                        type="button"
+                        onClick={() => adjustTeamScore(team.id, -5)}
+                        className="min-h-[34px] rounded-lg px-2 py-1 font-mono text-xs font-bold text-err hover:bg-err-soft active:scale-95"
+                      >
+                        −5
+                      </button>
+                      <span className="min-w-[54px] text-center font-mono text-sm font-extrabold text-ink tabular-nums">
                         {team.score.toLocaleString()}
                       </span>
                       <button
                         type="button"
+                        onClick={() => adjustTeamScore(team.id, 5)}
+                        className="min-h-[34px] rounded-lg px-2 py-1 font-mono text-xs font-bold text-ok hover:bg-ok-soft active:scale-95"
+                      >
+                        +5
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => adjustTeamScore(team.id, 10)}
-                        className="rounded-md px-2 py-1 font-mono text-xs font-semibold text-ok hover:bg-ok-soft"
+                        className="min-h-[34px] rounded-lg px-2 py-1 font-mono text-xs font-bold text-ok hover:bg-ok-soft active:scale-95"
                       >
                         +10
                       </button>

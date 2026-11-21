@@ -3,6 +3,7 @@ import {
   createBlankShowState,
   createId,
   createInitialShowState,
+  createInitialTiebreakerState,
   parseImportedShowState,
 } from '../lib/defaults';
 import { isAudioUnlocked, playBroadcastCue } from '../lib/sound';
@@ -15,7 +16,22 @@ import {
   type MqttSyncHandlers,
   type RemotePeerPresence,
 } from '../lib/mqttSync';
-import { loadPersistedState, ShowSyncClient, type PeerInfo, type SyncTransport } from '../lib/sync';
+import {
+  EVENT_BRIDGE_KEY,
+  loadPersistedState,
+  savePersistedState,
+  ShowSyncClient,
+  STORAGE_KEY,
+  type PeerInfo,
+  type SyncTransport,
+} from '../lib/sync';
+import { createInitialFastMoneyState, FAST_MONEY_MODULE_ID } from '../types/fastMoney';
+import {
+  CONFIDENCE_AUCTION_MODULE_ID,
+  createInitialConfidenceAuctionState,
+} from '../types/confidenceAuction';
+import { createInitialMentalSyncState, MENTAL_SYNC_MODULE_ID } from '../types/mentalSync';
+import { createInitialPolygraphState, POLYGRAPH_MODULE_ID } from '../types/polygraph';
 import {
   ACCENT_ORDER,
   type ActiveStageState,
@@ -34,6 +50,7 @@ import {
   type Team,
   type TeamAccent,
   type ThemeId,
+  type TiebreakerState,
 } from '../types/show';
 
 export type { MusicTrackSummary };
@@ -94,6 +111,9 @@ interface ShowContextValue {
 
   setDisplayMode: (mode: DisplayMode) => void;
   setActiveModuleId: (moduleId: string) => void;
+  toggleRulesOverlay: (moduleId: string | null) => void;
+  setPodiumRevealStep: (step: 0 | 1 | 2 | 3) => void;
+  updateTiebreaker: (updater: (prev: TiebreakerState) => TiebreakerState) => void;
   updateEventMeta: (patch: Partial<EventMeta>) => void;
 
   addTeam: (input: { name: string; playerA: string; playerB: string; score?: number; accent?: TeamAccent }) => void;
@@ -118,6 +138,7 @@ interface ShowContextValue {
   exportEventJson: () => string;
   importEventJson: (jsonText: string) => { ok: true } | { ok: false; error: string };
   loadDemoData: () => void;
+  resetEventProgress: () => void;
   resetAllData: () => void;
 }
 
@@ -931,6 +952,8 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
           updatedAt: Math.max(Date.now(), prev.updatedAt + 1),
         };
         stateRef.current = next;
+        // Guardado automático inmediato en localStorage ante cierres o recargas accidentales
+        savePersistedState(next);
         syncRef.current?.broadcastState(next);
         mqttManager.send({
           type: 'STATE_UPDATE',
@@ -992,7 +1015,12 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
 
   const setDisplayMode = useCallback(
     (mode: DisplayMode) => {
-      commitState((prev) => ({ ...prev, displayMode: mode }));
+      commitState((prev) => ({
+        ...prev,
+        displayMode: mode,
+        // Al salir de Juego Activo, ocultar cualquier overlay de reglas para no tapar el Podio/Tabla
+        rulesOverlayModuleId: mode === 'game' ? prev.rulesOverlayModuleId : null,
+      }));
       triggerCue('switch');
     },
     [commitState, triggerCue]
@@ -1000,7 +1028,53 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
 
   const setActiveModuleId = useCallback(
     (moduleId: string) => {
-      commitState((prev) => ({ ...prev, activeModuleId: moduleId }));
+      commitState((prev) => ({
+        ...prev,
+        activeModuleId: moduleId,
+        // Si las reglas estaban abiertas de otro juego, actualizarlas solo si ya estaban activas
+        rulesOverlayModuleId: prev.rulesOverlayModuleId ? moduleId : null,
+      }));
+    },
+    [commitState]
+  );
+
+  const toggleRulesOverlay = useCallback(
+    (moduleId: string | null) => {
+      commitState((prev) => ({
+        ...prev,
+        rulesOverlayModuleId:
+          moduleId === null
+            ? null
+            : prev.rulesOverlayModuleId === moduleId
+              ? null
+              : moduleId,
+      }));
+      triggerCue('cardFlip');
+    },
+    [commitState, triggerCue]
+  );
+
+  const setPodiumRevealStep = useCallback(
+    (step: 0 | 1 | 2 | 3) => {
+      commitState((prev) => ({
+        ...prev,
+        podiumRevealStep: step,
+      }));
+      if (step === 3) {
+        triggerCue('fanfare');
+      } else if (step > 0) {
+        triggerCue('reveal');
+      }
+    },
+    [commitState, triggerCue]
+  );
+
+  const updateTiebreaker = useCallback(
+    (updater: (prev: TiebreakerState) => TiebreakerState) => {
+      commitState((prev) => ({
+        ...prev,
+        tiebreaker: updater(prev.tiebreaker),
+      }));
     },
     [commitState]
   );
@@ -1279,7 +1353,49 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
     commitState(() => createInitialShowState(Date.now()));
   }, [commitState]);
 
+  /**
+   * Reinicia el evento: limpia localStorage, pone todos los puntajes en 0,
+   * reinicia historiales de preguntas usadas, podio y desempate, conservando las parejas registradas.
+   */
+  const resetEventProgress = useCallback(() => {
+    try {
+      window.localStorage.removeItem(STORAGE_KEY);
+      window.localStorage.removeItem(EVENT_BRIDGE_KEY);
+    } catch {
+      // ignorar
+    }
+    commitState((prev) => {
+      const zeroedTeams = prev.teams.map((tItem) => ({ ...tItem, score: 0 }));
+      const firstId = zeroedTeams[0]?.id ?? null;
+      return {
+        ...prev,
+        teams: zeroedTeams,
+        displayMode: 'lobby',
+        rulesOverlayModuleId: null,
+        podiumRevealStep: 0,
+        tiebreaker: createInitialTiebreakerState(),
+        stageState: {
+          ...prev.stageState,
+          answerRevealed: false,
+          spotlightTeamId: null,
+        },
+        moduleData: {
+          [FAST_MONEY_MODULE_ID]: createInitialFastMoneyState(firstId),
+          [CONFIDENCE_AUCTION_MODULE_ID]: createInitialConfidenceAuctionState(firstId),
+          [MENTAL_SYNC_MODULE_ID]: createInitialMentalSyncState(firstId),
+          [POLYGRAPH_MODULE_ID]: createInitialPolygraphState(firstId),
+        },
+      };
+    });
+  }, [commitState]);
+
   const resetAllData = useCallback(() => {
+    try {
+      window.localStorage.removeItem(STORAGE_KEY);
+      window.localStorage.removeItem(EVENT_BRIDGE_KEY);
+    } catch {
+      // ignorar
+    }
     commitState(() => createBlankShowState());
   }, [commitState]);
 
@@ -1325,6 +1441,9 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
       recentFlashes,
       setDisplayMode,
       setActiveModuleId,
+      toggleRulesOverlay,
+      setPodiumRevealStep,
+      updateTiebreaker,
       updateEventMeta,
       addTeam,
       updateTeam,
@@ -1341,6 +1460,7 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
       exportEventJson,
       importEventJson,
       loadDemoData,
+      resetEventProgress,
       resetAllData,
     }),
     [
@@ -1379,6 +1499,9 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
       recentFlashes,
       setDisplayMode,
       setActiveModuleId,
+      toggleRulesOverlay,
+      setPodiumRevealStep,
+      updateTiebreaker,
       updateEventMeta,
       addTeam,
       updateTeam,
@@ -1395,6 +1518,7 @@ export function ShowProvider({ role, children }: ShowProviderProps) {
       exportEventJson,
       importEventJson,
       loadDemoData,
+      resetEventProgress,
       resetAllData,
     ]
   );

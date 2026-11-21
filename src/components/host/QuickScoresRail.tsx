@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Minus, Plus, Trophy } from 'lucide-react';
+import { Minus, Plus, Trophy, Zap } from 'lucide-react';
 import { useShow } from '../../context/ShowContext';
 import { TEAM_ACCENTS } from '../../types/show';
 
@@ -7,7 +7,7 @@ interface QuickScoresRailProps {
   onOpenTeams: () => void;
 }
 
-const STEP_DELTAS = [-10, 10, 20, 50];
+const STEP_DELTAS = [-10, -5, 5, 10];
 
 export function QuickScoresRail({ onOpenTeams }: QuickScoresRailProps) {
   const { state, adjustTeamScore, setDisplayMode, t } = useShow();
@@ -27,18 +27,29 @@ export function QuickScoresRail({ onOpenTeams }: QuickScoresRailProps) {
 
   return (
     <aside className="w-full max-w-full overflow-hidden rounded-2xl border border-line bg-surface p-4 sm:p-5">
-      <div className="mb-4 flex items-center justify-between gap-2">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Trophy className="h-4 w-4 text-accent" />
           <h2 className="text-sm font-bold tracking-tight text-ink">Marcador en vivo</h2>
         </div>
-        <button
-          type="button"
-          onClick={() => setDisplayMode('leaderboard')}
-          className="text-xs font-semibold text-accent hover:underline"
-        >
-          Proyectar tabla
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setDisplayMode('tiebreaker')}
+            className="inline-flex items-center gap-1 rounded-lg border border-warn/45 bg-warn-soft px-2 py-1 text-[11px] font-bold text-warn transition hover:border-warn"
+            title="Abrir ronda de Muerte Súbita (Desempate)"
+          >
+            <Zap className="h-3 w-3" />
+            <span>Desempate</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setDisplayMode('leaderboard')}
+            className="text-xs font-semibold text-accent hover:underline"
+          >
+            Proyectar tabla
+          </button>
+        </div>
       </div>
 
       {sortedTeams.length === 0 ? (

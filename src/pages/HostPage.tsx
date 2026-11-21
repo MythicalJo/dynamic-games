@@ -1,13 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import {
+  Crown,
   Database,
   ExternalLink,
   Gamepad2,
   ListChecks,
   Radio,
+  RotateCcw,
   Trophy,
   Tv,
   Users,
+  Zap,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { ShowProvider, useShow } from '../context/ShowContext';
@@ -17,6 +20,9 @@ import { EventDataPanel } from '../components/host/EventDataPanel';
 import { QuickScoresRail } from '../components/host/QuickScoresRail';
 import { RemoteConnectBar } from '../components/host/RemoteConnectBar';
 import { SoundboardBar } from '../components/host/SoundboardBar';
+import { PodiumHostControls } from '../components/host/PodiumHostControls';
+import { TiebreakerHostControls } from '../components/host/TiebreakerHostControls';
+import { ResetEventModal } from '../components/host/ResetEventModal';
 import { useHostShortcuts } from '../hooks/useHostShortcuts';
 import { useWakeLock } from '../hooks/useWakeLock';
 import { getDisplayWindowUrl } from '../lib/i18n';
@@ -32,6 +38,7 @@ function HostWorkspace() {
     setTheme,
     setDisplayMode,
     setActiveModuleId,
+    resetEventProgress,
     connectedDisplays,
     localConnectedDisplays,
     roomCode,
@@ -41,6 +48,7 @@ function HostWorkspace() {
 
   const [topMode, setTopMode] = useState<TopMode>('live');
   const [setupSection, setSetupSection] = useState<SetupSection>('teams');
+  const [resetModalOpen, setResetModalOpen] = useState(false);
   const [remoteCardOpen, setRemoteCardOpen] = useState<boolean>(
     () => remoteStatus !== 'connected'
   );
@@ -75,10 +83,12 @@ function HostWorkspace() {
     );
   };
 
-  const screenModes: { mode: DisplayMode; label: string; hotkey: string; icon: typeof Tv }[] = [
+  const screenModes: { mode: DisplayMode; label: string; hotkey?: string; icon: typeof Tv }[] = [
     { mode: 'lobby', label: t.switcher.lobby, hotkey: '⇧1', icon: Tv },
     { mode: 'leaderboard', label: t.switcher.leaderboard, hotkey: '⇧2', icon: Trophy },
     { mode: 'game', label: t.switcher.activeGame, hotkey: '⇧3', icon: Gamepad2 },
+    { mode: 'podium', label: 'Podio Final', icon: Crown },
+    { mode: 'tiebreaker', label: 'Desempate', icon: Zap },
   ];
 
   const currentScreenName =
@@ -86,7 +96,11 @@ function HostWorkspace() {
       ? t.switcher.lobby
       : state.displayMode === 'leaderboard'
         ? t.switcher.leaderboard
-        : t.switcher.activeGame;
+        : state.displayMode === 'podium'
+          ? 'Podio Final'
+          : state.displayMode === 'tiebreaker'
+            ? 'Muerte Súbita'
+            : t.switcher.activeGame;
 
   return (
     <div className="flex min-h-screen w-full max-w-full flex-col overflow-x-hidden bg-canvas text-ink">
@@ -246,29 +260,34 @@ function HostWorkspace() {
                   )}
                 </div>
 
-                <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-3 lg:w-auto lg:flex lg:flex-wrap lg:items-center">
+                <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-3 lg:w-auto lg:flex lg:flex-wrap lg:items-center">
                   {screenModes.map(({ mode, label, hotkey, icon: Icon }) => {
                     const isActive = state.displayMode === mode;
+                    const isTiebreaker = mode === 'tiebreaker';
                     return (
                       <button
                         key={mode}
                         type="button"
                         onClick={() => setDisplayMode(mode)}
-                        className={`inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold transition active:scale-[0.98] sm:min-h-[40px] lg:w-auto ${
+                        className={`inline-flex min-h-[42px] w-full items-center justify-center gap-1.5 rounded-xl border px-2.5 py-2 text-xs font-bold transition active:scale-[0.98] sm:min-h-[40px] lg:w-auto lg:px-3 ${
                           isActive
                             ? 'border-accent bg-accent text-accent-fg'
-                            : 'border-line bg-canvas text-ink hover:border-line-strong'
+                            : isTiebreaker
+                              ? 'border-warn/45 bg-warn-soft text-warn hover:border-warn'
+                              : 'border-line bg-canvas text-ink hover:border-line-strong'
                         }`}
                       >
                         <Icon className="h-3.5 w-3.5 shrink-0" />
-                        <span className="text-center leading-tight">{label}</span>
-                        <kbd
-                          className={`hidden font-mono text-[10px] sm:inline ${
-                            isActive ? 'opacity-75' : 'text-ink-subtle'
-                          }`}
-                        >
-                          {hotkey}
-                        </kbd>
+                        <span className="truncate text-center leading-tight">{label}</span>
+                        {hotkey && (
+                          <kbd
+                            className={`hidden font-mono text-[10px] sm:inline ${
+                              isActive ? 'opacity-75' : 'text-ink-subtle'
+                            }`}
+                          >
+                            {hotkey}
+                          </kbd>
+                        )}
                       </button>
                     );
                   })}
@@ -304,9 +323,11 @@ function HostWorkspace() {
               </div>
             </section>
 
-            {/* ESSENTIAL LIVE 2-COLUMN DESK: Current Round Controls + Quick Score Actions */}
+            {/* ESSENTIAL LIVE 2-COLUMN DESK: Special Mode Controls + Current Round + Quick Score Actions */}
             <div className="grid w-full max-w-full grid-cols-1 items-start gap-5 lg:grid-cols-12">
-              <div className="w-full max-w-full min-w-0 lg:col-span-8">
+              <div className="w-full max-w-full min-w-0 space-y-5 lg:col-span-8">
+                {state.displayMode === 'podium' && <PodiumHostControls />}
+                {state.displayMode === 'tiebreaker' && <TiebreakerHostControls />}
                 {ActiveHostComponent && <ActiveHostComponent mode="live" />}
               </div>
 
@@ -368,13 +389,24 @@ function HostWorkspace() {
                 </button>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setTopMode('live')}
-                className="min-h-[40px] rounded-xl bg-accent px-4 py-2 text-xs font-bold text-accent-fg transition hover:opacity-90 sm:min-h-0"
-              >
-                Ir a En Vivo →
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setResetModalOpen(true)}
+                  className="inline-flex min-h-[40px] items-center gap-1.5 rounded-xl border border-err/40 bg-err-soft px-3.5 py-2 text-xs font-bold text-err transition hover:bg-err hover:text-err-fg sm:min-h-0"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  <span>Reiniciar Evento</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setTopMode('live')}
+                  className="min-h-[40px] rounded-xl bg-accent px-4 py-2 text-xs font-bold text-accent-fg transition hover:opacity-90 sm:min-h-0"
+                >
+                  Ir a En Vivo →
+                </button>
+              </div>
             </div>
 
             {setupSection === 'teams' && <TeamsManagerPanel />}
@@ -413,6 +445,13 @@ function HostWorkspace() {
           </div>
         )}
       </main>
+
+      {/* Protected 2-Step Event Reset Modal */}
+      <ResetEventModal
+        open={resetModalOpen}
+        onClose={() => setResetModalOpen(false)}
+        onConfirmReset={resetEventProgress}
+      />
 
       {/* SLEEK COMPACT SOUNDBOARD FOOTER + MOBILE-FRIENDLY MUSIC MODAL */}
       <SoundboardBar shortcutNotice={shortcutNotice} />

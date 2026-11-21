@@ -1,12 +1,15 @@
 import {
   ACCENT_ORDER,
   THEME_IDS,
+  type DisplayMode,
   type PreparedQuestion,
   type ShowState,
   type Team,
   type TeamAccent,
   type ThemeId,
+  type TiebreakerState,
 } from '../types/show';
+import { createTimerState, normalizeTimerState } from './timer';
 import { createInitialFastMoneyState, FAST_MONEY_MODULE_ID } from '../types/fastMoney';
 import {
   CONFIDENCE_AUCTION_MODULE_ID,
@@ -94,6 +97,43 @@ export const SAMPLE_QUESTIONS: PreparedQuestion[] = [
   },
 ];
 
+export function createInitialTiebreakerState(): TiebreakerState {
+  return {
+    source: 'mental-sync',
+    promptText: '',
+    promptHint: undefined,
+    timerSeconds: 15,
+    timer: createTimerState(15),
+    winnerTeamId: null,
+    usedPrompts: [],
+  };
+}
+
+export function normalizeTiebreakerState(raw: unknown): TiebreakerState {
+  if (!raw || typeof raw !== 'object') {
+    return createInitialTiebreakerState();
+  }
+  const obj = raw as Partial<TiebreakerState>;
+  const timerSeconds =
+    typeof obj.timerSeconds === 'number' && Number.isFinite(obj.timerSeconds)
+      ? Math.max(5, Math.min(180, Math.round(obj.timerSeconds)))
+      : 15;
+  return {
+    source: obj.source === 'confidence-auction' ? 'confidence-auction' : 'mental-sync',
+    promptText: typeof obj.promptText === 'string' ? obj.promptText : '',
+    promptHint: typeof obj.promptHint === 'string' ? obj.promptHint : undefined,
+    timerSeconds,
+    timer: normalizeTimerState(obj.timer, timerSeconds),
+    winnerTeamId:
+      typeof obj.winnerTeamId === 'string' && obj.winnerTeamId.trim()
+        ? obj.winnerTeamId
+        : null,
+    usedPrompts: Array.isArray(obj.usedPrompts)
+      ? obj.usedPrompts.filter((item): item is string => typeof item === 'string')
+      : [],
+  };
+}
+
 export function createInitialShowState(updatedAt = 0): ShowState {
   return {
     schemaVersion: 1,
@@ -119,6 +159,9 @@ export function createInitialShowState(updatedAt = 0): ShowState {
     language: 'es',
     theme: 'blanco',
     audioMuted: false,
+    rulesOverlayModuleId: null,
+    podiumRevealStep: 0,
+    tiebreaker: createInitialTiebreakerState(),
     moduleData: {
       [FAST_MONEY_MODULE_ID]: createInitialFastMoneyState(SAMPLE_TEAMS[0]?.id ?? null),
       [CONFIDENCE_AUCTION_MODULE_ID]: createInitialConfidenceAuctionState(SAMPLE_TEAMS[0]?.id ?? null),
@@ -153,6 +196,9 @@ export function createBlankShowState(): ShowState {
     language: 'es',
     theme: 'blanco',
     audioMuted: false,
+    rulesOverlayModuleId: null,
+    podiumRevealStep: 0,
+    tiebreaker: createInitialTiebreakerState(),
     moduleData: {},
   };
 }
@@ -243,8 +289,12 @@ export function parseImportedShowState(
         }))
     : [];
 
-  const displayMode =
-    obj.displayMode === 'lobby' || obj.displayMode === 'leaderboard' || obj.displayMode === 'game'
+  const displayMode: DisplayMode =
+    obj.displayMode === 'lobby' ||
+    obj.displayMode === 'leaderboard' ||
+    obj.displayMode === 'game' ||
+    obj.displayMode === 'podium' ||
+    obj.displayMode === 'tiebreaker'
       ? obj.displayMode
       : 'lobby';
 
@@ -300,6 +350,15 @@ export function parseImportedShowState(
       language: obj.language === 'en' ? 'en' : 'es',
       theme: isValidTheme(obj.theme) ? obj.theme : 'blanco',
       audioMuted: typeof obj.audioMuted === 'boolean' ? obj.audioMuted : false,
+      rulesOverlayModuleId:
+        typeof obj.rulesOverlayModuleId === 'string' && obj.rulesOverlayModuleId.trim()
+          ? obj.rulesOverlayModuleId
+          : null,
+      podiumRevealStep:
+        obj.podiumRevealStep === 1 || obj.podiumRevealStep === 2 || obj.podiumRevealStep === 3
+          ? obj.podiumRevealStep
+          : 0,
+      tiebreaker: normalizeTiebreakerState(obj.tiebreaker),
       moduleData,
     },
   };

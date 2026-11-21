@@ -20,11 +20,13 @@ import { useShow } from '../../../context/ShowContext';
 import { POLYGRAPH_TEMPLATE_IDEAS } from '../../../lib/spanishBank';
 import { formatBroadcastTimer } from '../../../lib/timer';
 import type { GameHostProps } from '../../../modules/registry';
-import type {
-  PolygraphPlayerSlot,
-  PolygraphStatement,
-  PolygraphVerdict,
+import {
+  POLYGRAPH_MODULE_ID,
+  type PolygraphPlayerSlot,
+  type PolygraphStatement,
+  type PolygraphVerdict,
 } from '../../../types/polygraph';
+import { RulesToggleButton } from '../../host/RulesToggleButton';
 import { TeamSelectorStrip } from '../../host/TeamSelectorStrip';
 import { usePolygraph } from './usePolygraph';
 
@@ -437,7 +439,8 @@ export function PolygraphHost({ mode }: GameHostProps) {
               <Activity className="h-5 w-5 shrink-0 text-accent" />
               <span>{t.polygraph.title}</span>
             </h2>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <RulesToggleButton moduleId={POLYGRAPH_MODULE_ID} />
               <div className="flex items-center gap-1.5 text-xs">
                 <span className="text-ink-muted">{t.polygraph.correctGuessPts}</span>
                 <input

@@ -17,6 +17,8 @@ import {
 import { useShow } from '../../../context/ShowContext';
 import { formatBroadcastTimer } from '../../../lib/timer';
 import type { GameHostProps } from '../../../modules/registry';
+import { CONFIDENCE_AUCTION_MODULE_ID } from '../../../types/confidenceAuction';
+import { RulesToggleButton } from '../../host/RulesToggleButton';
 import { TeamSelectorStrip } from '../../host/TeamSelectorStrip';
 import { useConfidenceAuction } from './useConfidenceAuction';
 
@@ -243,6 +245,7 @@ export function ConfidenceAuctionHost({ mode }: GameHostProps) {
             <span>{t.auction.title}</span>
           </h2>
           <div className="flex flex-wrap items-center gap-1.5">
+            <RulesToggleButton moduleId={CONFIDENCE_AUCTION_MODULE_ID} />
             <button
               type="button"
               onClick={selectRandomCategory}

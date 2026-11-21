@@ -19,8 +19,9 @@ import { useShow } from '../../../context/ShowContext';
 import { MENTAL_SYNC_PROMPT_BANK } from '../../../lib/spanishBank';
 import { formatBroadcastTimer } from '../../../lib/timer';
 import type { GameHostProps } from '../../../modules/registry';
-import { MENTAL_SYNC_MATCH_POINTS } from '../../../types/mentalSync';
+import { MENTAL_SYNC_MATCH_POINTS, MENTAL_SYNC_MODULE_ID } from '../../../types/mentalSync';
 import { TEAM_ACCENTS } from '../../../types/show';
+import { RulesToggleButton } from '../../host/RulesToggleButton';
 import { useMentalSync } from './useMentalSync';
 
 const TIMER_PRESETS = [10, 15, 20, 30];
@@ -250,6 +251,7 @@ export function MentalSyncHost({ mode }: GameHostProps) {
             </h2>
 
             <div className="flex flex-wrap items-center gap-1.5">
+              <RulesToggleButton moduleId={MENTAL_SYNC_MODULE_ID} />
               <button
                 type="button"
                 onClick={loadRandomTwelvePrompts}
